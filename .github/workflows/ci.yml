@@ -1,0 +1,34 @@
+name: CI Backend
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npm run prisma:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Compilar
+        run: npm run build
+
+      - name: Tests
+        run: npm test

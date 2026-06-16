@@ -1,0 +1,64 @@
+// Esquema de base de datos de ContentOS
+// Convención: nombres de modelos y campos en español.
+// En Fase 0 solo definimos el núcleo multi-tenant: Organizacion, Usuario, Membresia.
+// Las entidades de negocio (Cliente, EstrategiaDeMarca, Publicacion, etc.) se agregan en Fase 1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Roles posibles de un usuario dentro de una organización.
+enum Rol {
+  ADMIN
+  COMMUNITY_MANAGER
+  DISENADOR
+  COPYWRITER
+  ANALISTA
+  CLIENTE
+}
+
+/// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
+model Organizacion {
+  id          String       @id @default(cuid())
+  nombre      String
+  creadoEn    DateTime     @default(now())
+  actualizadoEn DateTime   @updatedAt
+  membresias  Membresia[]
+
+  @@map("organizaciones")
+}
+
+/// Usuario del sistema. Se sincroniza con Clerk a través de clerkId.
+model Usuario {
+  id            String      @id @default(cuid())
+  clerkId       String      @unique
+  email         String      @unique
+  nombre        String?
+  creadoEn      DateTime    @default(now())
+  actualizadoEn DateTime    @updatedAt
+  membresias    Membresia[]
+
+  @@map("usuarios")
+}
+
+/// Relación Usuario ↔ Organizacion con un rol asociado.
+/// Un usuario puede pertenecer a varias organizaciones con distinto rol.
+model Membresia {
+  id             String       @id @default(cuid())
+  rol            Rol          @default(COMMUNITY_MANAGER)
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId      String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@unique([usuarioId, organizacionId])
+  @@index([organizacionId])
+  @@map("membresias")
+}

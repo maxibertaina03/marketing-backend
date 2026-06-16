@@ -1,0 +1,27 @@
+# Dependencias
+/node_modules
+
+# Compilado
+/dist
+/build
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma
+prisma/*.db
+
+# Editor / SO
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# Tests
+/coverage
