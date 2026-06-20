@@ -22,13 +22,48 @@ enum Rol {
   CLIENTE
 }
 
+/// Tono de comunicación de una marca.
+enum TonoComunicacion {
+  FORMAL
+  INFORMAL
+  CASUAL
+  PROFESIONAL
+  CERCANO
+  INSPIRADOR
+  HUMORISTICO
+}
+
+/// Canal de publicación en redes sociales.
+enum Canal {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  OTRO
+}
+
+/// Estado de vida de una publicación.
+enum EstadoContenido {
+  BORRADOR
+  EN_REVISION
+  APROBADO
+  PROGRAMADO
+  PUBLICADO
+  RECHAZADO
+}
+
 /// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
 model Organizacion {
-  id          String       @id @default(cuid())
-  nombre      String
-  creadoEn    DateTime     @default(now())
-  actualizadoEn DateTime   @updatedAt
-  membresias  Membresia[]
+  id            String              @id @default(cuid())
+  nombre        String
+  creadoEn      DateTime            @default(now())
+  actualizadoEn DateTime            @updatedAt
+  membresias    Membresia[]
+  clientes      Cliente[]
+  estrategias   EstrategiaDeMarca[]
+  publicaciones Publicacion[]
 
   @@map("organizaciones")
 }
@@ -61,4 +96,67 @@ model Membresia {
   @@unique([usuarioId, organizacionId])
   @@index([organizacionId])
   @@map("membresias")
+}
+
+/// Cliente de la agencia. Cada estrategia de marca y contenido pertenece a un cliente.
+/// NOTA: el slice masita define un Cliente más completo; al integrar ese PR se unifican.
+model Cliente {
+  id             String              @id @default(cuid())
+  nombre         String
+  sector         String?
+  descripcion    String?             @db.Text
+  logoUrl        String?
+  organizacion   Organizacion        @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  estrategias    EstrategiaDeMarca[]
+  creadoEn       DateTime            @default(now())
+  actualizadoEn  DateTime            @updatedAt
+
+  @@index([organizacionId])
+  @@map("clientes")
+}
+
+/// Estrategia de marca de un cliente: define tono, objetivo, pilares y público objetivo.
+model EstrategiaDeMarca {
+  id              String           @id @default(cuid())
+  nombre          String
+  objetivo        String           @db.Text
+  publicoObjetivo String           @db.Text
+  tono            TonoComunicacion @default(PROFESIONAL)
+  pilares         String[]
+  restricciones   String?          @db.Text
+  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId       String
+  organizacion    Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId  String
+  publicaciones   Publicacion[]
+  creadoEn        DateTime         @default(now())
+  actualizadoEn   DateTime         @updatedAt
+
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@map("estrategias_de_marca")
+}
+
+/// Publicación de contenido en una red social, asociada a una estrategia de marca.
+model Publicacion {
+  id              String            @id @default(cuid())
+  titulo          String
+  contenido       String            @db.Text
+  imagenUrl       String?
+  canal           Canal
+  estado          EstadoContenido   @default(BORRADOR)
+  fechaProgramada DateTime?
+  estrategia      EstrategiaDeMarca @relation(fields: [estrategiaId], references: [id], onDelete: Cascade)
+  estrategiaId    String
+  organizacion    Organizacion      @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId  String
+  creadoEn        DateTime          @default(now())
+  actualizadoEn   DateTime          @updatedAt
+
+  @@index([organizacionId])
+  @@index([estrategiaId])
+  @@index([fechaProgramada])
+  @@index([estado])
+  @@map("publicaciones")
 }
