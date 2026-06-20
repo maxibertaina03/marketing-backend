@@ -22,6 +22,14 @@ enum Rol {
   CLIENTE
 }
 
+/// Estado comercial de un cliente (la marca) dentro de la agencia.
+enum EstadoCliente {
+  POTENCIAL
+  ACTIVO
+  PAUSADO
+  ARCHIVADO
+}
+
 /// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
 model Organizacion {
   id          String       @id @default(cuid())
@@ -29,6 +37,8 @@ model Organizacion {
   creadoEn    DateTime     @default(now())
   actualizadoEn DateTime   @updatedAt
   membresias  Membresia[]
+  clientes    Cliente[]
+  invitaciones Invitacion[]
 
   @@map("organizaciones")
 }
@@ -61,4 +71,52 @@ model Membresia {
   @@unique([usuarioId, organizacionId])
   @@index([organizacionId])
   @@map("membresias")
+}
+
+/// Cliente = la marca que la agencia gestiona. Pertenece a una organización (tenant).
+/// Capitan agrega aquí las relaciones a EstrategiaDeMarca y Publicacion en su slice.
+model Cliente {
+  id                 String        @id @default(cuid())
+  organizacion       Organizacion  @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId     String
+  nombre             String
+  rubro              String?
+  ubicacion          String?
+  sitioWeb           String?
+  // Datos de contacto del referente de la marca.
+  contactoNombre     String?
+  contactoEmail      String?
+  contactoTelefono   String?
+  // Redes sociales como objeto { instagram, facebook, tiktok, linkedin, ... }.
+  redes              Json?
+  logoUrl            String?
+  // Identidad visual: colores en formato hex (#RRGGBB).
+  paletaColores      String[]
+  tono               String?
+  publicoObjetivo    String?
+  productosServicios String?
+  objetivos          String?
+  competencia        String?
+  promociones        String?
+  estado             EstadoCliente @default(ACTIVO)
+  creadoEn           DateTime      @default(now())
+  actualizadoEn      DateTime      @updatedAt
+
+  @@index([organizacionId])
+  @@map("clientes")
+}
+
+/// Invitación pendiente para sumar a alguien a la organización con un rol.
+/// Cuando esa persona inicia sesión (su email coincide), se convierte en Membresia.
+model Invitacion {
+  id             String       @id @default(cuid())
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  email          String
+  rol            Rol          @default(COMMUNITY_MANAGER)
+  creadoEn       DateTime     @default(now())
+
+  @@unique([organizacionId, email])
+  @@index([email])
+  @@map("invitaciones")
 }

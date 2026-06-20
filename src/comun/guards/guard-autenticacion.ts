@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import type { Usuario } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CLAVE_PUBLICO } from '../decoradores/publico.decorator';
 import type { PeticionConContexto } from '../tipos/contexto-peticion';
@@ -55,6 +56,7 @@ export class GuardAutenticacion implements CanActivate {
     const usuario = await this.provisionarUsuario(payload);
     peticion.usuario = usuario;
 
+    await this.aplicarInvitacionesPendientes(usuario);
     await this.resolverContextoOrganizacion(peticion, usuario.id);
     return true;
   }
@@ -86,7 +88,8 @@ export class GuardAutenticacion implements CanActivate {
       throw new UnauthorizedException('El token no contiene un identificador de usuario.');
     }
 
-    const email = (payload['email'] as string | undefined) ?? `${clerkId}@sin-email.local`;
+    const emailCrudo = (payload['email'] as string | undefined) ?? `${clerkId}@sin-email.local`;
+    const email = emailCrudo.toLowerCase();
     const nombre = (payload['name'] as string | undefined) ?? null;
 
     return this.prisma.usuario.upsert({
@@ -94,6 +97,35 @@ export class GuardAutenticacion implements CanActivate {
       update: { email, nombre },
       create: { clerkId, email, nombre },
     });
+  }
+
+  /**
+   * Convierte en membresías las invitaciones pendientes dirigidas al email del
+   * usuario. Así, alguien invitado queda dentro de la organización apenas entra.
+   */
+  private async aplicarInvitacionesPendientes(usuario: Usuario): Promise<void> {
+    const invitaciones = await this.prisma.invitacion.findMany({
+      where: { email: usuario.email },
+    });
+    if (invitaciones.length === 0) {
+      return;
+    }
+
+    await this.prisma.$transaction([
+      ...invitaciones.map((inv) =>
+        this.prisma.membresia.upsert({
+          where: {
+            usuarioId_organizacionId: {
+              usuarioId: usuario.id,
+              organizacionId: inv.organizacionId,
+            },
+          },
+          update: {},
+          create: { usuarioId: usuario.id, organizacionId: inv.organizacionId, rol: inv.rol },
+        }),
+      ),
+      this.prisma.invitacion.deleteMany({ where: { email: usuario.email } }),
+    ]);
   }
 
   /**
