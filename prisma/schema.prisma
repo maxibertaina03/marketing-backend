@@ -1,7 +1,7 @@
 // Esquema de base de datos de ContentOS
 // Convención: nombres de modelos y campos en español.
-// En Fase 0 solo definimos el núcleo multi-tenant: Organizacion, Usuario, Membresia.
-// Las entidades de negocio (Cliente, EstrategiaDeMarca, Publicacion, etc.) se agregan en Fase 1.
+// Fase 0: núcleo multi-tenant (Organizacion, Usuario, Membresia).
+// Fase 1: entidades de negocio (Cliente, Invitacion, EstrategiaDeMarca, Publicacion).
 
 generator client {
   provider = "prisma-client-js"
@@ -20,6 +20,14 @@ enum Rol {
   COPYWRITER
   ANALISTA
   CLIENTE
+}
+
+/// Estado comercial de un cliente (la marca) dentro de la agencia.
+enum EstadoCliente {
+  POTENCIAL
+  ACTIVO
+  PAUSADO
+  ARCHIVADO
 }
 
 /// Tono de comunicación de una marca.
@@ -62,6 +70,7 @@ model Organizacion {
   actualizadoEn DateTime            @updatedAt
   membresias    Membresia[]
   clientes      Cliente[]
+  invitaciones  Invitacion[]
   estrategias   EstrategiaDeMarca[]
   publicaciones Publicacion[]
 
@@ -98,22 +107,54 @@ model Membresia {
   @@map("membresias")
 }
 
-/// Cliente de la agencia. Cada estrategia de marca y contenido pertenece a un cliente.
-/// NOTA: el slice masita define un Cliente más completo; al integrar ese PR se unifican.
+/// Cliente = la marca que la agencia gestiona. Pertenece a una organización (tenant).
+/// Modelo unificado: campos completos del slice masita + descripcion del slice capitán.
 model Cliente {
-  id             String              @id @default(cuid())
-  nombre         String
-  sector         String?
-  descripcion    String?             @db.Text
-  logoUrl        String?
-  organizacion   Organizacion        @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
-  organizacionId String
-  estrategias    EstrategiaDeMarca[]
-  creadoEn       DateTime            @default(now())
-  actualizadoEn  DateTime            @updatedAt
+  id                 String              @id @default(cuid())
+  organizacion       Organizacion        @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId     String
+  nombre             String
+  rubro              String?
+  descripcion        String?             @db.Text
+  ubicacion          String?
+  sitioWeb           String?
+  // Datos de contacto del referente de la marca.
+  contactoNombre     String?
+  contactoEmail      String?
+  contactoTelefono   String?
+  // Redes sociales como objeto { instagram, facebook, tiktok, linkedin, ... }.
+  redes              Json?
+  logoUrl            String?
+  // Identidad visual: colores en formato hex (#RRGGBB).
+  paletaColores      String[]
+  tono               String?
+  publicoObjetivo    String?
+  productosServicios String?
+  objetivos          String?
+  competencia        String?
+  promociones        String?
+  estado             EstadoCliente       @default(ACTIVO)
+  estrategias        EstrategiaDeMarca[]
+  creadoEn           DateTime            @default(now())
+  actualizadoEn      DateTime            @updatedAt
 
   @@index([organizacionId])
   @@map("clientes")
+}
+
+/// Invitación pendiente para sumar a alguien a la organización con un rol.
+/// Cuando esa persona inicia sesión (su email coincide), se convierte en Membresia.
+model Invitacion {
+  id             String       @id @default(cuid())
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  email          String
+  rol            Rol          @default(COMMUNITY_MANAGER)
+  creadoEn       DateTime     @default(now())
+
+  @@unique([organizacionId, email])
+  @@index([email])
+  @@map("invitaciones")
 }
 
 /// Estrategia de marca de un cliente: define tono, objetivo, pilares y público objetivo.

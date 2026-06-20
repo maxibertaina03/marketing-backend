@@ -7,6 +7,8 @@ import { GuardAutenticacion } from './comun/guards/guard-autenticacion';
 import { SaludModule } from './salud/salud.module';
 import { OrganizacionesModule } from './organizaciones/organizaciones.module';
 import { MembresiasModule } from './membresias/membresias.module';
+import { ClientesModule } from './clientes/clientes.module';
+import { EquipoModule } from './equipo/equipo.module';
 import { EstrategiaMarcaModule } from './estrategia-marca/estrategia-marca.module';
 import { ContenidoModule } from './contenido/contenido.module';
 
@@ -18,6 +20,8 @@ import { ContenidoModule } from './contenido/contenido.module';
     SaludModule,
     OrganizacionesModule,
     MembresiasModule,
+    ClientesModule,
+    EquipoModule,
     EstrategiaMarcaModule,
     ContenidoModule,
   ],
