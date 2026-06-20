@@ -1,7 +1,7 @@
 // Esquema de base de datos de ContentOS
 // Convención: nombres de modelos y campos en español.
-// En Fase 0 solo definimos el núcleo multi-tenant: Organizacion, Usuario, Membresia.
-// Las entidades de negocio (Cliente, EstrategiaDeMarca, Publicacion, etc.) se agregan en Fase 1.
+// Fase 0: núcleo multi-tenant (Organizacion, Usuario, Membresia).
+// Fase 1: entidades de negocio (Cliente, Invitacion, EstrategiaDeMarca, Publicacion).
 
 generator client {
   provider = "prisma-client-js"
@@ -30,15 +30,49 @@ enum EstadoCliente {
   ARCHIVADO
 }
 
+/// Tono de comunicación de una marca.
+enum TonoComunicacion {
+  FORMAL
+  INFORMAL
+  CASUAL
+  PROFESIONAL
+  CERCANO
+  INSPIRADOR
+  HUMORISTICO
+}
+
+/// Canal de publicación en redes sociales.
+enum Canal {
+  INSTAGRAM
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  OTRO
+}
+
+/// Estado de vida de una publicación.
+enum EstadoContenido {
+  BORRADOR
+  EN_REVISION
+  APROBADO
+  PROGRAMADO
+  PUBLICADO
+  RECHAZADO
+}
+
 /// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
 model Organizacion {
-  id          String       @id @default(cuid())
-  nombre      String
-  creadoEn    DateTime     @default(now())
-  actualizadoEn DateTime   @updatedAt
-  membresias  Membresia[]
-  clientes    Cliente[]
-  invitaciones Invitacion[]
+  id            String              @id @default(cuid())
+  nombre        String
+  creadoEn      DateTime            @default(now())
+  actualizadoEn DateTime            @updatedAt
+  membresias    Membresia[]
+  clientes      Cliente[]
+  invitaciones  Invitacion[]
+  estrategias   EstrategiaDeMarca[]
+  publicaciones Publicacion[]
 
   @@map("organizaciones")
 }
@@ -74,13 +108,14 @@ model Membresia {
 }
 
 /// Cliente = la marca que la agencia gestiona. Pertenece a una organización (tenant).
-/// Capitan agrega aquí las relaciones a EstrategiaDeMarca y Publicacion en su slice.
+/// Modelo unificado: campos completos del slice masita + descripcion del slice capitán.
 model Cliente {
-  id                 String        @id @default(cuid())
-  organizacion       Organizacion  @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(cuid())
+  organizacion       Organizacion        @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId     String
   nombre             String
   rubro              String?
+  descripcion        String?             @db.Text
   ubicacion          String?
   sitioWeb           String?
   // Datos de contacto del referente de la marca.
@@ -98,9 +133,10 @@ model Cliente {
   objetivos          String?
   competencia        String?
   promociones        String?
-  estado             EstadoCliente @default(ACTIVO)
-  creadoEn           DateTime      @default(now())
-  actualizadoEn      DateTime      @updatedAt
+  estado             EstadoCliente       @default(ACTIVO)
+  estrategias        EstrategiaDeMarca[]
+  creadoEn           DateTime            @default(now())
+  actualizadoEn      DateTime            @updatedAt
 
   @@index([organizacionId])
   @@map("clientes")
@@ -119,4 +155,49 @@ model Invitacion {
   @@unique([organizacionId, email])
   @@index([email])
   @@map("invitaciones")
+}
+
+/// Estrategia de marca de un cliente: define tono, objetivo, pilares y público objetivo.
+model EstrategiaDeMarca {
+  id              String           @id @default(cuid())
+  nombre          String
+  objetivo        String           @db.Text
+  publicoObjetivo String           @db.Text
+  tono            TonoComunicacion @default(PROFESIONAL)
+  pilares         String[]
+  restricciones   String?          @db.Text
+  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId       String
+  organizacion    Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId  String
+  publicaciones   Publicacion[]
+  creadoEn        DateTime         @default(now())
+  actualizadoEn   DateTime         @updatedAt
+
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@map("estrategias_de_marca")
+}
+
+/// Publicación de contenido en una red social, asociada a una estrategia de marca.
+model Publicacion {
+  id              String            @id @default(cuid())
+  titulo          String
+  contenido       String            @db.Text
+  imagenUrl       String?
+  canal           Canal
+  estado          EstadoContenido   @default(BORRADOR)
+  fechaProgramada DateTime?
+  estrategia      EstrategiaDeMarca @relation(fields: [estrategiaId], references: [id], onDelete: Cascade)
+  estrategiaId    String
+  organizacion    Organizacion      @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId  String
+  creadoEn        DateTime          @default(now())
+  actualizadoEn   DateTime          @updatedAt
+
+  @@index([organizacionId])
+  @@index([estrategiaId])
+  @@index([fechaProgramada])
+  @@index([estado])
+  @@map("publicaciones")
 }

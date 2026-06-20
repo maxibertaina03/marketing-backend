@@ -9,6 +9,8 @@ import { OrganizacionesModule } from './organizaciones/organizaciones.module';
 import { MembresiasModule } from './membresias/membresias.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { EquipoModule } from './equipo/equipo.module';
+import { EstrategiaMarcaModule } from './estrategia-marca/estrategia-marca.module';
+import { ContenidoModule } from './contenido/contenido.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { EquipoModule } from './equipo/equipo.module';
     MembresiasModule,
     ClientesModule,
     EquipoModule,
+    EstrategiaMarcaModule,
+    ContenidoModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).
