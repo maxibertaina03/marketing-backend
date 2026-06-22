@@ -17,9 +17,17 @@ export class CrearPublicacionDto {
   @MaxLength(200)
   titulo!: string;
 
-  @ApiProperty({ description: 'ID de la estrategia de marca a la que pertenece.' })
+  @ApiProperty({ description: 'ID del cliente al que pertenece la publicación.' })
   @IsString()
-  estrategiaId!: string;
+  clienteId!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'ID de la estrategia de marca (opcional). Si se indica, debe ser del mismo cliente.',
+  })
+  @IsOptional()
+  @IsString()
+  estrategiaId?: string;
 
   @ApiProperty({ example: '¡El verano llegó! Descubrí nuestra nueva colección...' })
   @IsString()
