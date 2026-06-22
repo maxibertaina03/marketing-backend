@@ -18,7 +18,10 @@ async function bootstrap(): Promise<void> {
     .map((o) => o.trim())
     .filter(Boolean);
   app.enableCors({
-    origin: (origen, callback) => {
+    origin: (
+      origen: string | undefined,
+      callback: (err: Error | null, permitido?: boolean) => void,
+    ) => {
       if (!origen) {
         callback(null, true); // curl, health checks, server-to-server
         return;
