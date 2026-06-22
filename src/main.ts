@@ -11,9 +11,32 @@ async function bootstrap(): Promise<void> {
   // Prefijo común para toda la API.
   app.setGlobalPrefix('api');
 
-  // CORS para que el frontend (Vite) pueda llamar al backend.
+  // CORS: acepta el/los origen(es) de ORIGEN_FRONTEND (lista separada por comas),
+  // cualquier subdominio *.vercel.app (Vercel da una URL por deploy) y localhost.
+  const origenesPermitidos = (config.get<string>('ORIGEN_FRONTEND') ?? 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: config.get<string>('ORIGEN_FRONTEND', 'http://localhost:5173'),
+    origin: (origen, callback) => {
+      if (!origen) {
+        callback(null, true); // curl, health checks, server-to-server
+        return;
+      }
+      let host = '';
+      try {
+        host = new URL(origen).hostname;
+      } catch {
+        callback(null, false);
+        return;
+      }
+      const permitido =
+        origenesPermitidos.includes(origen) ||
+        host.endsWith('.vercel.app') ||
+        host === 'localhost' ||
+        host === '127.0.0.1';
+      callback(null, permitido);
+    },
     credentials: true,
   });
 
