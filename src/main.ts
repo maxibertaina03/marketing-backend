@@ -35,10 +35,12 @@ async function bootstrap(): Promise<void> {
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, documento));
 
-  const puerto = config.get<number>('PUERTO', 3000);
-  await app.listen(puerto);
-  Logger.log(`ContentOS API escuchando en http://localhost:${puerto}/api`, 'Bootstrap');
-  Logger.log(`Swagger disponible en http://localhost:${puerto}/api/docs`, 'Bootstrap');
+  // En producción (Render/etc.) el puerto llega por la env PORT; en local usamos PUERTO.
+  // Escuchamos en 0.0.0.0 para que la plataforma pueda exponer el servicio.
+  const puerto = config.get<string>('PORT') ?? config.get<string>('PUERTO') ?? '3000';
+  await app.listen(puerto, '0.0.0.0');
+  Logger.log(`ContentOS API escuchando en el puerto ${puerto} (prefijo /api)`, 'Bootstrap');
+  Logger.log('Swagger disponible en /api/docs', 'Bootstrap');
 }
 
 void bootstrap();
