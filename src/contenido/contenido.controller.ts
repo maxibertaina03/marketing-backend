@@ -38,6 +38,7 @@ export class ContenidoController {
   @ApiOperation({
     summary: 'Lista publicaciones con filtros opcionales. Usá desde/hasta para el calendario.',
   })
+  @ApiQuery({ name: 'clienteId', required: false })
   @ApiQuery({ name: 'estrategiaId', required: false })
   @ApiQuery({ name: 'canal', required: false, enum: Canal })
   @ApiQuery({ name: 'estado', required: false, enum: EstadoContenido })
@@ -53,13 +54,21 @@ export class ContenidoController {
   })
   listar(
     @OrgActual() organizacionId: string,
+    @Query('clienteId') clienteId?: string,
     @Query('estrategiaId') estrategiaId?: string,
     @Query('canal') canal?: Canal,
     @Query('estado') estado?: EstadoContenido,
     @Query('desde') desde?: string,
     @Query('hasta') hasta?: string,
   ) {
-    return this.contenido.listar(organizacionId, { estrategiaId, canal, estado, desde, hasta });
+    return this.contenido.listar(organizacionId, {
+      clienteId,
+      estrategiaId,
+      canal,
+      estado,
+      desde,
+      hasta,
+    });
   }
 
   @Get(':id')

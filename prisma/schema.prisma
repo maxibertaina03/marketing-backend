@@ -135,6 +135,7 @@ model Cliente {
   promociones        String?
   estado             EstadoCliente       @default(ACTIVO)
   estrategias        EstrategiaDeMarca[]
+  publicaciones      Publicacion[]
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -186,16 +187,20 @@ model Publicacion {
   contenido       String            @db.Text
   imagenUrl       String?
   canal           Canal
-  estado          EstadoContenido   @default(BORRADOR)
+  estado          EstadoContenido    @default(BORRADOR)
   fechaProgramada DateTime?
-  estrategia      EstrategiaDeMarca @relation(fields: [estrategiaId], references: [id], onDelete: Cascade)
-  estrategiaId    String
-  organizacion    Organizacion      @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  // Una publicación siempre pertenece a un cliente; la estrategia es opcional.
+  cliente         Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId       String
+  estrategia      EstrategiaDeMarca? @relation(fields: [estrategiaId], references: [id], onDelete: SetNull)
+  estrategiaId    String?
+  organizacion    Organizacion       @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId  String
-  creadoEn        DateTime          @default(now())
-  actualizadoEn   DateTime          @updatedAt
+  creadoEn        DateTime           @default(now())
+  actualizadoEn   DateTime           @updatedAt
 
   @@index([organizacionId])
+  @@index([clienteId])
   @@index([estrategiaId])
   @@index([fechaProgramada])
   @@index([estado])

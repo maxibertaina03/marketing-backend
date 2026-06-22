@@ -4,12 +4,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CrearPublicacionDto } from './dto/crear-publicacion.dto';
 import { ActualizarPublicacionDto } from './dto/actualizar-publicacion.dto';
 
+/** Relaciones que se devuelven con cada publicación: su cliente y (si tiene) su estrategia. */
+const RELACIONES_PUBLICACION = {
+  cliente: { select: { id: true, nombre: true } },
+  estrategia: { select: { id: true, nombre: true } },
+} as const;
+
 @Injectable()
 export class ContenidoService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crear(organizacionId: string, dto: CrearPublicacionDto) {
-    await this.verificarEstrategiaEnOrg(dto.estrategiaId, organizacionId);
+    await this.verificarClienteEnOrg(dto.clienteId, organizacionId);
+    if (dto.estrategiaId) {
+      await this.verificarEstrategiaDelCliente(dto.estrategiaId, dto.clienteId, organizacionId);
+    }
     return this.prisma.publicacion.create({
       data: {
         titulo: dto.titulo,
@@ -18,18 +27,18 @@ export class ContenidoService {
         estado: dto.estado ?? EstadoContenido.BORRADOR,
         fechaProgramada: dto.fechaProgramada ? new Date(dto.fechaProgramada) : null,
         imagenUrl: dto.imagenUrl,
-        estrategiaId: dto.estrategiaId,
+        clienteId: dto.clienteId,
+        estrategiaId: dto.estrategiaId ?? null,
         organizacionId,
       },
-      include: {
-        estrategia: { select: { id: true, nombre: true, clienteId: true } },
-      },
+      include: RELACIONES_PUBLICACION,
     });
   }
 
   async listar(
     organizacionId: string,
     filtros: {
+      clienteId?: string;
       estrategiaId?: string;
       canal?: Canal;
       estado?: EstadoContenido;
@@ -37,10 +46,11 @@ export class ContenidoService {
       hasta?: string;
     },
   ) {
-    const { estrategiaId, canal, estado, desde, hasta } = filtros;
+    const { clienteId, estrategiaId, canal, estado, desde, hasta } = filtros;
     return this.prisma.publicacion.findMany({
       where: {
         organizacionId,
+        ...(clienteId ? { clienteId } : {}),
         ...(estrategiaId ? { estrategiaId } : {}),
         ...(canal ? { canal } : {}),
         ...(estado ? { estado } : {}),
@@ -53,11 +63,7 @@ export class ContenidoService {
             }
           : {}),
       },
-      include: {
-        estrategia: {
-          select: { id: true, nombre: true, cliente: { select: { id: true, nombre: true } } },
-        },
-      },
+      include: RELACIONES_PUBLICACION,
       orderBy: [{ fechaProgramada: 'asc' }, { creadoEn: 'desc' }],
     });
   }
@@ -65,16 +71,7 @@ export class ContenidoService {
   async obtener(organizacionId: string, id: string) {
     const publicacion = await this.prisma.publicacion.findFirst({
       where: { id, organizacionId },
-      include: {
-        estrategia: {
-          select: {
-            id: true,
-            nombre: true,
-            tono: true,
-            cliente: { select: { id: true, nombre: true } },
-          },
-        },
-      },
+      include: RELACIONES_PUBLICACION,
     });
     if (!publicacion) throw new NotFoundException('Publicación no encontrada.');
     return publicacion;
@@ -88,9 +85,7 @@ export class ContenidoService {
         ...dto,
         fechaProgramada: dto.fechaProgramada ? new Date(dto.fechaProgramada) : undefined,
       },
-      include: {
-        estrategia: { select: { id: true, nombre: true } },
-      },
+      include: RELACIONES_PUBLICACION,
     });
   }
 
@@ -107,11 +102,25 @@ export class ContenidoService {
     await this.prisma.publicacion.delete({ where: { id } });
   }
 
-  private async verificarEstrategiaEnOrg(estrategiaId: string, organizacionId: string) {
+  private async verificarClienteEnOrg(clienteId: string, organizacionId: string) {
+    const cliente = await this.prisma.cliente.findFirst({
+      where: { id: clienteId, organizacionId },
+    });
+    if (!cliente) throw new ForbiddenException('El cliente no pertenece a esta organización.');
+  }
+
+  /** La estrategia (si se indicó) debe existir en la org y pertenecer a ese cliente. */
+  private async verificarEstrategiaDelCliente(
+    estrategiaId: string,
+    clienteId: string,
+    organizacionId: string,
+  ) {
     const estrategia = await this.prisma.estrategiaDeMarca.findFirst({
       where: { id: estrategiaId, organizacionId },
     });
     if (!estrategia)
       throw new ForbiddenException('La estrategia no pertenece a esta organización.');
+    if (estrategia.clienteId !== clienteId)
+      throw new ForbiddenException('La estrategia no pertenece a ese cliente.');
   }
 }
