@@ -83,3 +83,41 @@ Nunca commitees `.env` ni `node_modules` (ya están en `.gitignore`).
 
 Antes de cada fase se acuerda el **contrato de API** (DTOs + rutas en Swagger) para no pisarse.
 El plan completo lo tiene masita; pedíselo si necesitás el detalle.
+
+## Centro de IA — Fase 2 (módulo `ia`)
+
+El módulo `ia` (`src/ia/`) es la base de la Fase 2. Expone **`ServicioIa`** y NUNCA se
+llama a la IA desde el front (la `ANTHROPIC_API_KEY` vive solo en el backend). El modelo
+por defecto es `claude-opus-4-8` (configurable con `MODELO_IA`).
+
+**Patrón "botón = endpoint = salida estructurada" (no chat):** cada botón de IA es un
+endpoint que arma el contexto real de la marca y devuelve **JSON validable**. Por dentro,
+`ServicioIa` fuerza una herramienta cuyo `input_schema` es tu esquema, cachea el contexto de
+marca (prompt caching, ~90% más barato en repeticiones) y **persiste cada generación**
+(`GeneracionIa`: entrada, salida, modelo, tokens) para trazabilidad y Banco de Ideas.
+
+### Cómo construir un botón nuevo (lo que hace capitán encima)
+
+1. Importá `IaModule` en tu módulo y inyectá `ServicioIa`.
+2. Definí el esquema JSON de tu salida y llamá a `generar(...)`:
+
+```ts
+const { salida, generacionId, tokens } = await this.servicioIa.generar<{ ideas: string[] }>({
+  organizacionId,                 // del contexto (OrgActual)
+  clienteId,                      // opcional, para trazabilidad
+  tipoBoton: TipoBotonIa.IDEAS_CONTENIDO,
+  contextoMarca: textoEstrategiaDeLaMarca,   // estable y grande → se cachea
+  instruccion: 'Generá 5 ideas de reels para esta semana.',
+  esquemaSalida: {
+    type: 'object',
+    properties: { ideas: { type: 'array', items: { type: 'string' } } },
+    required: ['ideas'],
+  },
+});
+// `salida` ya viene parseada según tu esquema.
+```
+
+**Reglas del contrato** (ver `src/ia/tipos.ts`): `esquemaSalida` debe ser un objeto JSON Schema
+(`type: "object"` + `properties` + `required`). Poné lo estable (marca/estrategia) en
+`contextoMarca` y la instrucción puntual en `instruccion`. Si falta la API key, `generar`
+lanza `503`. Para alto volumen, evaluar `claude-sonnet-4-6` por tipo de tarea vía `MODELO_IA`.
