@@ -62,6 +62,22 @@ enum EstadoContenido {
   RECHAZADO
 }
 
+/// Tipo de "botón" del Centro de IA que originó una generación.
+/// Cada botón es un endpoint con salida estructurada (no chat).
+enum TipoBotonIa {
+  IDEAS_CONTENIDO
+  COPYWRITING
+  CARRUSEL
+  HOOKS
+  ESTRATEGIA_MENSUAL
+  FODA
+  BUYER_PERSONA
+  PILARES
+  CAMPANA
+  ANALISIS_METRICAS
+  OTRO
+}
+
 /// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
 model Organizacion {
   id            String              @id @default(cuid())
@@ -73,6 +89,7 @@ model Organizacion {
   invitaciones  Invitacion[]
   estrategias   EstrategiaDeMarca[]
   publicaciones Publicacion[]
+  generacionesIa GeneracionIa[]
 
   @@map("organizaciones")
 }
@@ -205,4 +222,30 @@ model Publicacion {
   @@index([fechaProgramada])
   @@index([estado])
   @@map("publicaciones")
+}
+
+/// Traza de cada generación del Centro de IA: entrada, salida estructurada,
+/// modelo y consumo de tokens (incluido el ahorro por prompt caching).
+/// Es la base del Banco de Ideas y del control de costos de IA.
+/// clienteId/estrategiaId se guardan sueltos (sin FK) para no acoplar dominios.
+model GeneracionIa {
+  id                  String       @id @default(cuid())
+  organizacion        Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId      String
+  clienteId           String?
+  estrategiaId        String?
+  tipoBoton           TipoBotonIa
+  instruccion         String       @db.Text
+  salida              Json
+  modelo              String
+  tokensEntrada       Int          @default(0)
+  tokensSalida        Int          @default(0)
+  tokensCacheCreacion Int          @default(0)
+  tokensCacheLectura  Int          @default(0)
+  creadoEn            DateTime     @default(now())
+
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@index([tipoBoton])
+  @@map("generaciones_ia")
 }
