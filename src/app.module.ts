@@ -12,6 +12,7 @@ import { EquipoModule } from './equipo/equipo.module';
 import { EstrategiaMarcaModule } from './estrategia-marca/estrategia-marca.module';
 import { ContenidoModule } from './contenido/contenido.module';
 import { IaModule } from './ia/ia.module';
+import { IaContenidoModule } from './ia-contenido/ia-contenido.module';
 import { IaEstrategiaModule } from './ia-estrategia/ia-estrategia.module';
 import { IaCampanasModule } from './ia-campanas/ia-campanas.module';
 
@@ -28,6 +29,7 @@ import { IaCampanasModule } from './ia-campanas/ia-campanas.module';
     EstrategiaMarcaModule,
     ContenidoModule,
     IaModule,
+    IaContenidoModule,
     IaEstrategiaModule,
     IaCampanasModule,
   ],
