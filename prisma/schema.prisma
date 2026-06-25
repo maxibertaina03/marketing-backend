@@ -147,12 +147,16 @@ model Membresia {
   usuarioId      String
   organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId String
+  // Solo relevante cuando rol = CLIENTE: indica qué marca representa este miembro.
+  cliente        Cliente?     @relation("ClienteMembresias", fields: [clienteId], references: [id], onDelete: SetNull)
+  clienteId      String?
   tareasAsignadas Tarea[]
   creadoEn       DateTime     @default(now())
   actualizadoEn  DateTime     @updatedAt
 
   @@unique([usuarioId, organizacionId])
   @@index([organizacionId])
+  @@index([clienteId])
   @@map("membresias")
 }
 
@@ -186,6 +190,7 @@ model Cliente {
   estrategias        EstrategiaDeMarca[]
   publicaciones      Publicacion[]
   archivos           Archivo[]
+  membresias         Membresia[]         @relation("ClienteMembresias")
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -238,6 +243,7 @@ model Publicacion {
   imagenUrl       String?
   canal           Canal
   estado          EstadoContenido    @default(BORRADOR)
+  motivoRechazo   String?            @db.Text
   fechaProgramada DateTime?
   // Una publicación siempre pertenece a un cliente; la estrategia es opcional.
   cliente         Cliente            @relation(fields: [clienteId], references: [id], onDelete: Cascade)
