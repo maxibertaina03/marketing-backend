@@ -19,6 +19,7 @@ import { ProduccionModule } from './produccion/produccion.module';
 import { ArchivosModule } from './archivos/archivos.module';
 import { AprobacionesModule } from './aprobaciones/aprobaciones.module';
 import { PortalClienteModule } from './portal-cliente/portal-cliente.module';
+import { MetricasModule } from './metricas/metricas.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PortalClienteModule } from './portal-cliente/portal-cliente.module';
     ArchivosModule,
     AprobacionesModule,
     PortalClienteModule,
+    MetricasModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).
