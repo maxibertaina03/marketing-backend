@@ -15,6 +15,10 @@ import { IaModule } from './ia/ia.module';
 import { IaContenidoModule } from './ia-contenido/ia-contenido.module';
 import { IaEstrategiaModule } from './ia-estrategia/ia-estrategia.module';
 import { IaCampanasModule } from './ia-campanas/ia-campanas.module';
+import { ProduccionModule } from './produccion/produccion.module';
+import { ArchivosModule } from './archivos/archivos.module';
+import { AprobacionesModule } from './aprobaciones/aprobaciones.module';
+import { PortalClienteModule } from './portal-cliente/portal-cliente.module';
 
 @Module({
   imports: [
@@ -32,6 +36,10 @@ import { IaCampanasModule } from './ia-campanas/ia-campanas.module';
     IaContenidoModule,
     IaEstrategiaModule,
     IaCampanasModule,
+    ProduccionModule,
+    ArchivosModule,
+    AprobacionesModule,
+    PortalClienteModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).

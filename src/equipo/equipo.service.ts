@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Rol } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvitarMiembroDto } from './dto/invitar-miembro.dto';
@@ -18,7 +24,7 @@ export class EquipoService {
   async listarMiembros(organizacionId: string) {
     const membresias = await this.prisma.membresia.findMany({
       where: { organizacionId },
-      include: { usuario: true },
+      include: { usuario: true, cliente: { select: { id: true, nombre: true } } },
       orderBy: { creadoEn: 'asc' },
     });
 
@@ -28,6 +34,9 @@ export class EquipoService {
       email: m.usuario.email,
       nombre: m.usuario.nombre,
       rol: m.rol,
+      // Solo relevante para el rol CLIENTE: la marca que representa.
+      clienteId: m.clienteId,
+      cliente: m.cliente,
     }));
   }
 
@@ -45,6 +54,7 @@ export class EquipoService {
    */
   async invitar(organizacionId: string, dto: InvitarMiembroDto) {
     const email = dto.email.toLowerCase();
+    const clienteId = await this.resolverClienteId(organizacionId, dto.rol, dto.clienteId);
     const usuario = await this.prisma.usuario.findUnique({ where: { email } });
 
     if (usuario) {
@@ -55,15 +65,15 @@ export class EquipoService {
         throw new ConflictException('Esa persona ya es miembro de la organización.');
       }
       const membresia = await this.prisma.membresia.create({
-        data: { usuarioId: usuario.id, organizacionId, rol: dto.rol },
+        data: { usuarioId: usuario.id, organizacionId, rol: dto.rol, clienteId },
       });
       return { tipo: 'membresia' as const, membresia };
     }
 
     const invitacion = await this.prisma.invitacion.upsert({
       where: { organizacionId_email: { organizacionId, email } },
-      update: { rol: dto.rol },
-      create: { organizacionId, email, rol: dto.rol },
+      update: { rol: dto.rol, clienteId },
+      create: { organizacionId, email, rol: dto.rol, clienteId },
     });
     return { tipo: 'invitacion' as const, invitacion };
   }
@@ -78,13 +88,21 @@ export class EquipoService {
     return { cancelada: true };
   }
 
-  /** Cambia el rol de un miembro (sin dejar la organización sin ADMIN). */
-  async cambiarRol(organizacionId: string, membresiaId: string, rol: Rol) {
+  /**
+   * Cambia el rol de un miembro (sin dejar la organización sin ADMIN). Si el
+   * nuevo rol es CLIENTE, vincula la marca (`clienteId`); para otros roles, la
+   * desvincula.
+   */
+  async cambiarRol(organizacionId: string, membresiaId: string, rol: Rol, clienteId?: string) {
     const membresia = await this.obtenerMembresia(organizacionId, membresiaId);
     if (membresia.rol === Rol.ADMIN && rol !== Rol.ADMIN) {
       await this.asegurarNoEsUltimoAdmin(organizacionId);
     }
-    return this.prisma.membresia.update({ where: { id: membresiaId }, data: { rol } });
+    const clienteVinculado = await this.resolverClienteId(organizacionId, rol, clienteId);
+    return this.prisma.membresia.update({
+      where: { id: membresiaId },
+      data: { rol, clienteId: clienteVinculado },
+    });
   }
 
   /** Quita a un miembro de la organización (sin dejarla sin ADMIN). */
@@ -106,6 +124,32 @@ export class EquipoService {
       throw new NotFoundException('El miembro no existe en esta organización.');
     }
     return membresia;
+  }
+
+  /**
+   * Resuelve el `clienteId` a guardar según el rol:
+   * - rol CLIENTE: es obligatorio y debe pertenecer a la organización.
+   * - otros roles: se ignora (devuelve null) — un no-CLIENTE no representa marca.
+   */
+  private async resolverClienteId(
+    organizacionId: string,
+    rol: Rol,
+    clienteId?: string,
+  ): Promise<string | null> {
+    if (rol !== Rol.CLIENTE) return null;
+    if (!clienteId) {
+      throw new BadRequestException(
+        'Un miembro con rol CLIENTE debe tener una marca asignada (clienteId).',
+      );
+    }
+    const cliente = await this.prisma.cliente.findFirst({
+      where: { id: clienteId, organizacionId },
+      select: { id: true },
+    });
+    if (!cliente) {
+      throw new ForbiddenException('La marca indicada no pertenece a esta organización.');
+    }
+    return clienteId;
   }
 
   /** Evita que la organización se quede sin ningún ADMIN. */
