@@ -78,6 +78,35 @@ enum TipoBotonIa {
   OTRO
 }
 
+// ─── Fase 3: Producción y Gestión de Archivos ───
+
+/// Tipo de tarea dentro del flujo de producción de una publicación.
+enum TipoTarea {
+  REDACCION
+  DISENO
+  EDICION
+  PROGRAMACION
+  REVISION
+  OTRO
+}
+
+/// Estado de avance de una tarea de producción.
+enum EstadoTarea {
+  PENDIENTE
+  EN_CURSO
+  BLOQUEADA
+  HECHA
+}
+
+/// Naturaleza del archivo gestionado (la URL apunta al hosting externo).
+enum TipoArchivo {
+  IMAGEN
+  VIDEO
+  DOCUMENTO
+  AUDIO
+  OTRO
+}
+
 /// La agencia / equipo. Es el "tenant" del sistema: todo cuelga de acá.
 model Organizacion {
   id            String              @id @default(cuid())
@@ -90,6 +119,8 @@ model Organizacion {
   estrategias   EstrategiaDeMarca[]
   publicaciones Publicacion[]
   generacionesIa GeneracionIa[]
+  tareas        Tarea[]
+  archivos      Archivo[]
 
   @@map("organizaciones")
 }
@@ -116,6 +147,7 @@ model Membresia {
   usuarioId      String
   organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId String
+  tareasAsignadas Tarea[]
   creadoEn       DateTime     @default(now())
   actualizadoEn  DateTime     @updatedAt
 
@@ -153,6 +185,7 @@ model Cliente {
   estado             EstadoCliente       @default(ACTIVO)
   estrategias        EstrategiaDeMarca[]
   publicaciones      Publicacion[]
+  archivos           Archivo[]
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -213,6 +246,8 @@ model Publicacion {
   estrategiaId    String?
   organizacion    Organizacion       @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId  String
+  tareas          Tarea[]
+  archivos        Archivo[]
   creadoEn        DateTime           @default(now())
   actualizadoEn   DateTime           @updatedAt
 
@@ -248,4 +283,55 @@ model GeneracionIa {
   @@index([clienteId])
   @@index([tipoBoton])
   @@map("generaciones_ia")
+}
+
+/// Tarea de producción asociada a una publicación: el trabajo concreto que el
+/// equipo debe hacer para llevar la pieza adelante (redactar, diseñar, revisar…).
+/// Se asigna opcionalmente a una Membresia (un miembro de la organización).
+model Tarea {
+  id             String       @id @default(cuid())
+  titulo         String
+  descripcion    String?      @db.Text
+  tipo           TipoTarea    @default(OTRO)
+  estado         EstadoTarea  @default(PENDIENTE)
+  fechaLimite    DateTime?
+  publicacion    Publicacion  @relation(fields: [publicacionId], references: [id], onDelete: Cascade)
+  publicacionId  String
+  // Responsable de la tarea. Opcional hasta que se asigna.
+  asignado       Membresia?   @relation(fields: [asignadoId], references: [id], onDelete: SetNull)
+  asignadoId     String?
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@index([organizacionId])
+  @@index([publicacionId])
+  @@index([asignadoId])
+  @@index([estado])
+  @@map("tareas")
+}
+
+/// Archivo gestionado de una marca (diseños, imágenes, documentos…). MVP: solo
+/// metadata + URL al hosting externo (Render free no tiene disco persistente).
+/// Cuelga de un Cliente y, opcionalmente, de una Publicacion concreta.
+model Archivo {
+  id             String       @id @default(cuid())
+  nombre         String
+  url            String
+  tipo           TipoArchivo  @default(OTRO)
+  tamanoBytes    Int?
+  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId      String
+  publicacion    Publicacion? @relation(fields: [publicacionId], references: [id], onDelete: SetNull)
+  publicacionId  String?
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@index([publicacionId])
+  @@map("archivos")
 }
