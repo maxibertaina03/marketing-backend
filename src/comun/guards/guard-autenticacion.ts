@@ -121,7 +121,13 @@ export class GuardAutenticacion implements CanActivate {
             },
           },
           update: {},
-          create: { usuarioId: usuario.id, organizacionId: inv.organizacionId, rol: inv.rol },
+          create: {
+            usuarioId: usuario.id,
+            organizacionId: inv.organizacionId,
+            rol: inv.rol,
+            // Para invitaciones de CLIENTE, hereda la marca que representa.
+            clienteId: inv.clienteId,
+          },
         }),
       ),
       this.prisma.invitacion.deleteMany({ where: { email: usuario.email } }),
