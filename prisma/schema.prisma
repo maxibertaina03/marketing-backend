@@ -122,6 +122,7 @@ model Organizacion {
   tareas        Tarea[]
   archivos      Archivo[]
   metricas      MetricaPublicacion[]
+  informes      Informe[]
 
   @@map("organizaciones")
 }
@@ -194,6 +195,7 @@ model Cliente {
   membresias         Membresia[]         @relation("ClienteMembresias")
   invitaciones       Invitacion[]        @relation("ClienteInvitaciones")
   metricas           MetricaPublicacion[]
+  informes           Informe[]
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -379,4 +381,38 @@ model Archivo {
   @@index([clienteId])
   @@index([publicacionId])
   @@map("archivos")
+}
+
+// ─── Fase 4: Informes y Automatizaciones ───
+
+/// Informe mensual generado por IA para un cliente. Único por (clienteId, periodo).
+model Informe {
+  id              String       @id @default(cuid())
+  periodo         String       // Formato YYYYMM, ej: "202606"
+  resumenMetricas Json
+  analisisIa      Json
+  generacionIaId  String?
+  cliente         Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId       String
+  organizacion    Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId  String
+  creadoEn        DateTime     @default(now())
+  actualizadoEn   DateTime     @updatedAt
+
+  @@unique([clienteId, periodo])
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@index([periodo])
+  @@map("informes")
+}
+
+/// Log de ejecuciones de jobs automáticos (publicar programadas, generar informes).
+model EjecucionJob {
+  id          String   @id @default(cuid())
+  tipo        String
+  resultado   Json
+  ejecutadoEn DateTime @default(now())
+
+  @@index([tipo])
+  @@map("ejecuciones_job")
 }
