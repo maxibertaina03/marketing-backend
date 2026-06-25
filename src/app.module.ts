@@ -20,6 +20,9 @@ import { ArchivosModule } from './archivos/archivos.module';
 import { AprobacionesModule } from './aprobaciones/aprobaciones.module';
 import { PortalClienteModule } from './portal-cliente/portal-cliente.module';
 import { MetricasModule } from './metricas/metricas.module';
+import { IaMetricasModule } from './ia-metricas/ia-metricas.module';
+import { InformesModule } from './informes/informes.module';
+import { AutomatizacionesModule } from './automatizaciones/automatizaciones.module';
 
 @Module({
   imports: [
@@ -42,6 +45,9 @@ import { MetricasModule } from './metricas/metricas.module';
     AprobacionesModule,
     PortalClienteModule,
     MetricasModule,
+    IaMetricasModule,
+    InformesModule,
+    AutomatizacionesModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).
