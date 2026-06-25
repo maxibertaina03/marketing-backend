@@ -54,7 +54,7 @@ export class EquipoController {
     @Param('membresiaId') membresiaId: string,
     @Body() dto: CambiarRolDto,
   ) {
-    return this.equipo.cambiarRol(organizacionId, membresiaId, dto.rol);
+    return this.equipo.cambiarRol(organizacionId, membresiaId, dto.rol, dto.clienteId);
   }
 
   @Delete('miembros/:membresiaId')

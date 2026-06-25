@@ -191,6 +191,7 @@ model Cliente {
   publicaciones      Publicacion[]
   archivos           Archivo[]
   membresias         Membresia[]         @relation("ClienteMembresias")
+  invitaciones       Invitacion[]        @relation("ClienteInvitaciones")
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -206,10 +207,15 @@ model Invitacion {
   organizacionId String
   email          String
   rol            Rol          @default(COMMUNITY_MANAGER)
+  // Solo cuando rol = CLIENTE: marca que representará el invitado. Se copia a la
+  // membresía al aplicar la invitación.
+  cliente        Cliente?     @relation("ClienteInvitaciones", fields: [clienteId], references: [id], onDelete: SetNull)
+  clienteId      String?
   creadoEn       DateTime     @default(now())
 
   @@unique([organizacionId, email])
   @@index([email])
+  @@index([clienteId])
   @@map("invitaciones")
 }
 
