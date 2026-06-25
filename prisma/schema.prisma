@@ -121,6 +121,7 @@ model Organizacion {
   generacionesIa GeneracionIa[]
   tareas        Tarea[]
   archivos      Archivo[]
+  metricas      MetricaPublicacion[]
 
   @@map("organizaciones")
 }
@@ -192,6 +193,7 @@ model Cliente {
   archivos           Archivo[]
   membresias         Membresia[]         @relation("ClienteMembresias")
   invitaciones       Invitacion[]        @relation("ClienteInvitaciones")
+  metricas           MetricaPublicacion[]
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -260,6 +262,7 @@ model Publicacion {
   organizacionId  String
   tareas          Tarea[]
   archivos        Archivo[]
+  metricas        MetricaPublicacion[]
   creadoEn        DateTime           @default(now())
   actualizadoEn   DateTime           @updatedAt
 
@@ -269,6 +272,36 @@ model Publicacion {
   @@index([fechaProgramada])
   @@index([estado])
   @@map("publicaciones")
+}
+
+/// Métricas de una publicación en una fecha (snapshot diario). Fase 4: las ingesta
+/// la integración con Meta; el Dashboard por cliente y la IA de Métricas las leen.
+/// Único por (publicacion, fecha) → re-ingestar el mismo día actualiza la fila.
+model MetricaPublicacion {
+  id             String       @id @default(cuid())
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId      String
+  publicacion    Publicacion  @relation(fields: [publicacionId], references: [id], onDelete: Cascade)
+  publicacionId  String
+  canal          Canal
+  fecha          DateTime     @db.Date
+  impresiones    Int          @default(0)
+  alcance        Int          @default(0)
+  meGusta        Int          @default(0)
+  comentarios    Int          @default(0)
+  compartidos    Int          @default(0)
+  guardados      Int          @default(0)
+  clics          Int          @default(0)
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@unique([publicacionId, fecha])
+  @@index([organizacionId])
+  @@index([clienteId])
+  @@index([fecha])
+  @@map("metricas_publicacion")
 }
 
 /// Traza de cada generación del Centro de IA: entrada, salida estructurada,
