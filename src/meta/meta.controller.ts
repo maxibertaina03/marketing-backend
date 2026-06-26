@@ -16,18 +16,20 @@ import { OrgActual } from '../comun/decoradores/contexto-actual.decorator';
  */
 @ApiTags('meta')
 @ApiBearerAuth()
-@UseGuards(GuardRoles)
 @Controller('meta')
 export class MetaController {
   constructor(private readonly meta: MetaService) {}
 
   @Get('conectar')
+  @UseGuards(GuardRoles)
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER)
   @ApiOperation({ summary: 'Devuelve la URL de autorización de Meta para conectar el cliente.' })
   conectar(@OrgActual() organizacionId: string, @Query() dto: ClienteMetaDto) {
     return this.meta.iniciarConexion(organizacionId, dto.clienteId);
   }
 
+  // Sin @UseGuards(GuardRoles): Meta invoca este endpoint sin sesión de usuario.
+  // La seguridad la da el HMAC del state firmado en iniciarConexion.
   @Get('callback')
   @Publico()
   @ApiOperation({ summary: 'Callback de OAuth de Meta. Redirige al front con el resultado.' })
@@ -42,6 +44,7 @@ export class MetaController {
   }
 
   @Get('estado')
+  @UseGuards(GuardRoles)
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.ANALISTA)
   @ApiOperation({ summary: 'Estado de la conexión con Meta de un cliente.' })
   estado(@OrgActual() organizacionId: string, @Query() dto: ClienteMetaDto) {
@@ -49,6 +52,7 @@ export class MetaController {
   }
 
   @Post('sincronizar')
+  @UseGuards(GuardRoles)
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER)
   @ApiOperation({ summary: 'Trae métricas reales de Instagram y las guarda como snapshot.' })
   sincronizar(@OrgActual() organizacionId: string, @Body() dto: ClienteMetaDto) {
@@ -56,6 +60,7 @@ export class MetaController {
   }
 
   @Delete('conexion')
+  @UseGuards(GuardRoles)
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER)
   @ApiOperation({ summary: 'Desconecta Meta de un cliente.' })
   desconectar(@OrgActual() organizacionId: string, @Query() dto: ClienteMetaDto) {
