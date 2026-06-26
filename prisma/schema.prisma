@@ -123,6 +123,7 @@ model Organizacion {
   archivos      Archivo[]
   metricas      MetricaPublicacion[]
   informes      Informe[]
+  conexionesMeta ConexionMeta[]
 
   @@map("organizaciones")
 }
@@ -196,6 +197,7 @@ model Cliente {
   invitaciones       Invitacion[]        @relation("ClienteInvitaciones")
   metricas           MetricaPublicacion[]
   informes           Informe[]
+  conexionMeta       ConexionMeta?
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -251,6 +253,8 @@ model Publicacion {
   titulo          String
   contenido       String            @db.Text
   imagenUrl       String?
+  // ID del post real en Instagram/Facebook (cuando la publicación viene de Meta).
+  metaMediaId     String?
   canal           Canal
   estado          EstadoContenido    @default(BORRADOR)
   motivoRechazo   String?            @db.Text
@@ -273,6 +277,7 @@ model Publicacion {
   @@index([estrategiaId])
   @@index([fechaProgramada])
   @@index([estado])
+  @@index([clienteId, metaMediaId])
   @@map("publicaciones")
 }
 
@@ -304,6 +309,32 @@ model MetricaPublicacion {
   @@index([clienteId])
   @@index([fecha])
   @@map("metricas_publicacion")
+}
+
+/// Conexión de un cliente (marca) con su cuenta de Instagram/Facebook vía Meta.
+/// Guarda el token de la Página y la cuenta de Instagram Business vinculada, para
+/// traer métricas reales. Un cliente tiene a lo sumo una conexión (1:1).
+model ConexionMeta {
+  id             String       @id @default(cuid())
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId      String       @unique
+  // Página de Facebook vinculada y su token (los tokens de Página derivados de un
+  // user-token de larga duración no expiran mientras el usuario no revoque acceso).
+  pageId         String
+  pageNombre     String?
+  accessToken    String       @db.Text
+  // Cuenta de Instagram Business asociada a esa Página.
+  igUserId       String
+  igUsername     String?
+  tokenExpiraEn  DateTime?
+  ultimaSync     DateTime?
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@index([organizacionId])
+  @@map("conexiones_meta")
 }
 
 /// Traza de cada generación del Centro de IA: entrada, salida estructurada,

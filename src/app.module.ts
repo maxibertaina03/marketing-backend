@@ -23,6 +23,7 @@ import { MetricasModule } from './metricas/metricas.module';
 import { IaMetricasModule } from './ia-metricas/ia-metricas.module';
 import { InformesModule } from './informes/informes.module';
 import { AutomatizacionesModule } from './automatizaciones/automatizaciones.module';
+import { MetaModule } from './meta/meta.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AutomatizacionesModule } from './automatizaciones/automatizaciones.modu
     IaMetricasModule,
     InformesModule,
     AutomatizacionesModule,
+    MetaModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).
