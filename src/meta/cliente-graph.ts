@@ -1,29 +1,21 @@
 /**
- * Cliente mínimo de la Graph API de Meta (Facebook/Instagram). Encapsula el OAuth
- * (Facebook Login) y la lectura de medios + insights de una cuenta de Instagram
- * Business. No usa SDK: solo `fetch` (Node 20+). Todas las llamadas son de lectura.
+ * Cliente de la API de Instagram con **Instagram Login** (la API nueva de Meta).
+ * El usuario inicia sesión directo con su Instagram Business/Creator (sin Página de
+ * Facebook), autoriza, y con el token leemos sus medios + insights. Solo `fetch`.
  */
 
-const SCOPES = [
-  'instagram_basic',
-  'instagram_manage_insights',
-  'pages_show_list',
-  'pages_read_engagement',
-  'business_management',
-].join(',');
+const SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'].join(',');
+
+const AUTORIZAR = 'https://www.instagram.com/oauth/authorize';
+const TOKEN_CORTO = 'https://api.instagram.com/oauth/access_token';
+const GRAPH = 'https://graph.instagram.com';
 
 export interface TokenLargaDuracion {
   token: string;
   expiraEn: Date | null;
 }
 
-export interface PaginaFacebook {
-  id: string;
-  nombre: string;
-  accessToken: string;
-}
-
-export interface CuentaInstagram {
+export interface PerfilInstagram {
   id: string;
   username: string | null;
 }
@@ -47,85 +39,73 @@ export interface InsightsMedio {
 }
 
 export class ClienteGraphMeta {
-  private readonly base: string;
-  private readonly dialogo: string;
-
   constructor(
     private readonly appId: string,
     private readonly appSecret: string,
     private readonly redirectUri: string,
-    version = 'v21.0',
-  ) {
-    this.base = `https://graph.facebook.com/${version}`;
-    this.dialogo = `https://www.facebook.com/${version}/dialog/oauth`;
-  }
+  ) {}
 
-  /** URL del diálogo de autorización de Facebook (la abre el usuario para conectar). */
+  /** URL del diálogo de autorización de Instagram (la abre el usuario para conectar). */
   urlAutorizacion(state: string): string {
     const params = new URLSearchParams({
       client_id: this.appId,
       redirect_uri: this.redirectUri,
-      state,
-      scope: SCOPES,
       response_type: 'code',
+      scope: SCOPES,
+      state,
     });
-    return `${this.dialogo}?${params.toString()}`;
+    return `${AUTORIZAR}?${params.toString()}`;
   }
 
-  /** Intercambia el `code` del callback por un token de usuario de corta duración. */
-  async intercambiarCodigo(code: string): Promise<string> {
-    const params = new URLSearchParams({
+  /** Intercambia el `code` del callback por un token de corta duración + el user id. */
+  async intercambiarCodigo(code: string): Promise<{ token: string; userId: string }> {
+    const body = new URLSearchParams({
       client_id: this.appId,
       client_secret: this.appSecret,
+      grant_type: 'authorization_code',
       redirect_uri: this.redirectUri,
       code,
     });
-    const json = await this.pedir<{ access_token: string }>(
-      `${this.base}/oauth/access_token?${params.toString()}`,
-    );
-    return json.access_token;
+    const res = await fetch(TOKEN_CORTO, { method: 'POST', body });
+    const json = (await res.json().catch(() => ({}))) as {
+      access_token?: string;
+      user_id?: string | number;
+      data?: { access_token: string; user_id: string | number }[];
+      error_message?: string;
+      error_type?: string;
+    };
+    const token = json.access_token ?? json.data?.[0]?.access_token;
+    const userId = json.user_id ?? json.data?.[0]?.user_id;
+    if (!res.ok || !token || userId == null) {
+      throw new Error(json.error_message ?? `Instagram API respondió ${res.status}`);
+    }
+    return { token, userId: String(userId) };
   }
 
-  /** Cambia un token de corta duración por uno de larga duración (~60 días). */
+  /** Cambia el token de corta duración por uno de larga duración (~60 días). */
   async tokenLargaDuracion(tokenCorto: string): Promise<TokenLargaDuracion> {
     const params = new URLSearchParams({
-      grant_type: 'fb_exchange_token',
-      client_id: this.appId,
+      grant_type: 'ig_exchange_token',
       client_secret: this.appSecret,
-      fb_exchange_token: tokenCorto,
+      access_token: tokenCorto,
     });
     const json = await this.pedir<{ access_token: string; expires_in?: number }>(
-      `${this.base}/oauth/access_token?${params.toString()}`,
+      `${GRAPH}/access_token?${params.toString()}`,
     );
     const expiraEn = json.expires_in ? new Date(Date.now() + json.expires_in * 1000) : null;
     return { token: json.access_token, expiraEn };
   }
 
-  /** Páginas de Facebook que administra el usuario (con su token de Página). */
-  async paginas(tokenUsuario: string): Promise<PaginaFacebook[]> {
-    const json = await this.pedir<{
-      data: { id: string; name: string; access_token: string }[];
-    }>(`${this.base}/me/accounts?fields=id,name,access_token&access_token=${tokenUsuario}`);
-    return (json.data ?? []).map((p) => ({
-      id: p.id,
-      nombre: p.name,
-      accessToken: p.access_token,
-    }));
-  }
-
-  /** Cuenta de Instagram Business vinculada a una Página (o null si no tiene). */
-  async cuentaInstagram(pageId: string, tokenPagina: string): Promise<CuentaInstagram | null> {
-    const json = await this.pedir<{
-      instagram_business_account?: { id: string; username?: string };
-    }>(
-      `${this.base}/${pageId}?fields=instagram_business_account{id,username}&access_token=${tokenPagina}`,
+  /** Perfil de la cuenta de Instagram conectada (id + username). */
+  async perfil(token: string): Promise<PerfilInstagram> {
+    const json = await this.pedir<{ user_id?: string; id?: string; username?: string }>(
+      `${GRAPH}/me?fields=user_id,username&access_token=${token}`,
     );
-    const ig = json.instagram_business_account;
-    return ig ? { id: ig.id, username: ig.username ?? null } : null;
+    return { id: String(json.user_id ?? json.id), username: json.username ?? null };
   }
 
-  /** Últimos medios (posts) de la cuenta de Instagram, con likes/comentarios. */
-  async medios(igUserId: string, tokenPagina: string, limite = 25): Promise<MedioInstagram[]> {
+  /** Últimos medios (posts) de la cuenta, con likes/comentarios. */
+  async medios(token: string, limite = 25): Promise<MedioInstagram[]> {
     const campos = 'id,caption,media_type,timestamp,permalink,media_url,like_count,comments_count';
     const json = await this.pedir<{
       data: {
@@ -138,9 +118,7 @@ export class ClienteGraphMeta {
         like_count?: number;
         comments_count?: number;
       }[];
-    }>(
-      `${this.base}/${igUserId}/media?fields=${campos}&limit=${limite}&access_token=${tokenPagina}`,
-    );
+    }>(`${GRAPH}/me/media?fields=${campos}&limit=${limite}&access_token=${token}`);
     return (json.data ?? []).map((m) => ({
       id: m.id,
       caption: m.caption ?? null,
@@ -154,11 +132,11 @@ export class ClienteGraphMeta {
   }
 
   /**
-   * Insights de un medio (alcance, impresiones/vistas, guardados, compartidos).
-   * Las métricas disponibles varían por tipo de medio y versión de API, así que
-   * degrada el pedido si Meta rechaza alguna métrica, devolviendo lo que se pueda.
+   * Insights de un medio (alcance, vistas, guardados, compartidos). Las métricas
+   * disponibles varían por tipo de medio y versión, así que degrada el pedido si
+   * Meta rechaza alguna, devolviendo lo que se pueda.
    */
-  async insightsMedio(mediaId: string, tokenPagina: string): Promise<InsightsMedio> {
+  async insightsMedio(mediaId: string, token: string): Promise<InsightsMedio> {
     const candidatos = [
       ['reach', 'views', 'saved', 'shares'],
       ['reach', 'saved', 'shares'],
@@ -168,7 +146,7 @@ export class ClienteGraphMeta {
     for (const metricas of candidatos) {
       try {
         const json = await this.pedir<{ data: { name: string; values: { value: number }[] }[] }>(
-          `${this.base}/${mediaId}/insights?metric=${metricas.join(',')}&access_token=${tokenPagina}`,
+          `${GRAPH}/${mediaId}/insights?metric=${metricas.join(',')}&access_token=${token}`,
         );
         const valor = (nombre: string) =>
           json.data?.find((d) => d.name === nombre)?.values?.[0]?.value ?? 0;
@@ -193,7 +171,7 @@ export class ClienteGraphMeta {
       error?: { message?: string };
     };
     if (!res.ok || json.error) {
-      throw new Error(json.error?.message ?? `Meta API respondió ${res.status}`);
+      throw new Error(json.error?.message ?? `Instagram API respondió ${res.status}`);
     }
     return json;
   }

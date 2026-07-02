@@ -6,16 +6,17 @@ cliente vía OAuth (Facebook Login) y trae **métricas reales** hacia `MetricaPu
 
 ## Variables de entorno (backend)
 
+Usa la **API de Instagram con Instagram Login** (la nueva de Meta): login directo con la
+cuenta de Instagram Business/Creator, **sin Página de Facebook**.
+
 | Variable | Descripción |
 |---|---|
-| `META_APP_ID` | App ID de la app de Meta. |
-| `META_APP_SECRET` | Clave secreta de la app (🔒). |
-| `META_REDIRECT_URI` | URL del callback. **Debe** coincidir con la registrada en *Facebook Login → Valid OAuth Redirect URIs*. En prod: `https://contentos-backend-0qns.onrender.com/api/meta/callback`. |
-| `META_API_VERSION` | Opcional, por defecto `v21.0`. |
+| `META_IG_APP_ID` | Identificador de la app **de Instagram** (App → API de Instagram → Configuración de la API con inicio de sesión de Instagram). |
+| `META_IG_APP_SECRET` | Clave secreta de la app de Instagram (🔒). |
+| `META_REDIRECT_URI` | URL del callback. **Debe** coincidir con la registrada en *API de Instagram → Configuración del inicio de sesión de la empresa → URI de redireccionamiento de OAuth válidos*. En prod: `https://contentos-backend-0qns.onrender.com/api/meta/callback`. |
 | `ORIGEN_FRONTEND` | Base del front para volver tras el OAuth (ya existía). |
 
-Permisos solicitados: `instagram_basic`, `instagram_manage_insights`, `pages_show_list`,
-`pages_read_engagement`, `business_management`.
+Permisos solicitados: `instagram_business_basic`, `instagram_business_manage_insights`.
 
 ## Endpoints
 

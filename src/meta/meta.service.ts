@@ -22,9 +22,10 @@ interface EstadoOAuth {
 const VENTANA_STATE_MS = 15 * 60 * 1000; // el state es válido 15 minutos
 
 /**
- * Integración con Meta (Instagram/Facebook). Maneja el OAuth (conectar la cuenta
- * de un cliente) y la sincronización de métricas reales hacia `MetricaPublicacion`
- * (el mismo modelo que usa el Dashboard y la IA de Métricas). Multi-tenant.
+ * Integración con Meta (Instagram Login). Maneja el OAuth (conectar la cuenta de
+ * Instagram Business de un cliente) y la sincronización de métricas reales hacia
+ * `MetricaPublicacion` (el modelo que usa el Dashboard y la IA de Métricas).
+ * Multi-tenant.
  */
 @Injectable()
 export class MetaService {
@@ -37,18 +38,17 @@ export class MetaService {
     private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
-    const appId = config.get<string>('META_APP_ID') ?? '';
-    this.appSecret = config.get<string>('META_APP_SECRET') ?? '';
+    const appId = config.get<string>('META_IG_APP_ID') ?? '';
+    this.appSecret = config.get<string>('META_IG_APP_SECRET') ?? '';
     const redirectUri = config.get<string>('META_REDIRECT_URI') ?? '';
-    const version = config.get<string>('META_API_VERSION') ?? 'v21.0';
     this.frontendUrl = config.get<string>('ORIGEN_FRONTEND') ?? '';
     this.graph =
       appId && this.appSecret && redirectUri
-        ? new ClienteGraphMeta(appId, this.appSecret, redirectUri, version)
+        ? new ClienteGraphMeta(appId, this.appSecret, redirectUri)
         : null;
   }
 
-  /** Paso 1: devuelve la URL de autorización de Facebook para conectar el cliente. */
+  /** Paso 1: devuelve la URL de autorización de Instagram para conectar el cliente. */
   async iniciarConexion(organizacionId: string, clienteId: string) {
     const graph = this.exigirGraph();
     await this.verificarCliente(organizacionId, clienteId);
@@ -57,13 +57,12 @@ export class MetaService {
   }
 
   /**
-   * Paso 2: Meta redirige acá con `code` + `state`. Intercambia el token, resuelve
-   * la Página + cuenta de Instagram y guarda la conexión. Devuelve la URL del front
+   * Paso 2: Instagram redirige acá con `code` + `state`. Intercambia el token,
+   * resuelve el perfil de Instagram y guarda la conexión. Devuelve la URL del front
    * a la que volver (la ficha del cliente, con el resultado).
    */
   async procesarCallback(code?: string, state?: string, error?: string): Promise<string> {
-    if (error) return this.urlResultado(null, `meta=error`);
-    if (!code || !state) return this.urlResultado(null, 'meta=error');
+    if (error || !code || !state) return this.urlResultado(null, 'meta=error');
 
     let datos: EstadoOAuth;
     try {
@@ -74,38 +73,28 @@ export class MetaService {
 
     try {
       const graph = this.exigirGraph();
-      const tokenCorto = await graph.intercambiarCodigo(code);
-      const largo = await graph.tokenLargaDuracion(tokenCorto);
-      const paginas = await graph.paginas(largo.token);
+      const corto = await graph.intercambiarCodigo(code);
+      const largo = await graph.tokenLargaDuracion(corto.token);
+      const perfil = await graph.perfil(largo.token);
 
-      // Buscamos la primera Página que tenga una cuenta de Instagram Business.
-      for (const pagina of paginas) {
-        const ig = await graph.cuentaInstagram(pagina.id, pagina.accessToken);
-        if (!ig) continue;
-        await this.prisma.conexionMeta.upsert({
-          where: { clienteId: datos.clienteId },
-          create: {
-            organizacionId: datos.organizacionId,
-            clienteId: datos.clienteId,
-            pageId: pagina.id,
-            pageNombre: pagina.nombre,
-            accessToken: pagina.accessToken,
-            igUserId: ig.id,
-            igUsername: ig.username,
-            tokenExpiraEn: largo.expiraEn,
-          },
-          update: {
-            pageId: pagina.id,
-            pageNombre: pagina.nombre,
-            accessToken: pagina.accessToken,
-            igUserId: ig.id,
-            igUsername: ig.username,
-            tokenExpiraEn: largo.expiraEn,
-          },
-        });
-        return this.urlResultado(datos.clienteId, 'meta=conectado');
-      }
-      return this.urlResultado(datos.clienteId, 'meta=sin_instagram');
+      const datosConexion = {
+        pageId: null,
+        pageNombre: null,
+        accessToken: largo.token,
+        igUserId: perfil.id || corto.userId,
+        igUsername: perfil.username,
+        tokenExpiraEn: largo.expiraEn,
+      };
+      await this.prisma.conexionMeta.upsert({
+        where: { clienteId: datos.clienteId },
+        create: {
+          organizacionId: datos.organizacionId,
+          clienteId: datos.clienteId,
+          ...datosConexion,
+        },
+        update: datosConexion,
+      });
+      return this.urlResultado(datos.clienteId, 'meta=conectado');
     } catch (e) {
       this.logger.error(`Callback de Meta falló: ${e instanceof Error ? e.message : e}`);
       return this.urlResultado(datos.clienteId, 'meta=error');
@@ -117,7 +106,7 @@ export class MetaService {
     await this.verificarCliente(organizacionId, clienteId);
     const conexion = await this.prisma.conexionMeta.findFirst({
       where: { clienteId, organizacionId },
-      select: { igUsername: true, pageNombre: true, ultimaSync: true, tokenExpiraEn: true },
+      select: { igUsername: true, ultimaSync: true, tokenExpiraEn: true },
     });
     if (!conexion) return { conectado: false };
     return { conectado: true, ...conexion };
@@ -145,7 +134,7 @@ export class MetaService {
       throw new BadRequestException('Este cliente no tiene Instagram conectado.');
     }
 
-    const medios = await graph.medios(conexion.igUserId, conexion.accessToken);
+    const medios = await graph.medios(conexion.accessToken);
     const hoy = new Date();
     hoy.setUTCHours(0, 0, 0, 0);
 
