@@ -1,12 +1,11 @@
-import { Test } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MetaService } from './meta.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const CONFIG_OK: Record<string, string> = {
-  META_APP_ID: 'app123',
-  META_APP_SECRET: 'secreto',
+  META_IG_APP_ID: 'app123',
+  META_IG_APP_SECRET: 'secreto',
   META_REDIRECT_URI: 'https://api.test/api/meta/callback',
   ORIGEN_FRONTEND: 'https://front.test',
 };
@@ -18,16 +17,16 @@ function crear(config: Record<string, string>, prismaMock: Record<string, unknow
 }
 
 describe('MetaService', () => {
-  it('iniciarConexion: arma la URL de Facebook con un state firmado', async () => {
+  it('iniciarConexion: arma la URL de Instagram con un state firmado', async () => {
     const prisma = { cliente: { findFirst: jest.fn().mockResolvedValue({ id: 'c1' }) } };
     const service = crear(CONFIG_OK, prisma);
 
     const { url } = await service.iniciarConexion('org1', 'c1');
 
-    expect(url).toContain('https://www.facebook.com/');
+    expect(url).toContain('https://www.instagram.com/oauth/authorize');
     expect(url).toContain('client_id=app123');
     expect(url).toContain('state=');
-    expect(url).toContain('instagram_manage_insights');
+    expect(url).toContain('instagram_business_manage_insights');
   });
 
   it('iniciarConexion: 404 si el cliente no es de la organización', async () => {

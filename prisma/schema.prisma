@@ -320,9 +320,8 @@ model ConexionMeta {
   organizacionId String
   cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   clienteId      String       @unique
-  // Página de Facebook vinculada y su token (los tokens de Página derivados de un
-  // user-token de larga duración no expiran mientras el usuario no revoque acceso).
-  pageId         String
+  // Página de Facebook (opcional; solo en el flujo clásico con Facebook Login).
+  pageId         String?
   pageNombre     String?
   accessToken    String       @db.Text
   // Cuenta de Instagram Business asociada a esa Página.
