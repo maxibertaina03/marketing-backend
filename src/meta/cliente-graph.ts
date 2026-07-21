@@ -4,7 +4,13 @@
  * Facebook), autoriza, y con el token leemos sus medios + insights. Solo `fetch`.
  */
 
-const SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'].join(',');
+const SCOPES_BASE = ['instagram_business_basic', 'instagram_business_manage_insights'];
+/**
+ * Permiso para publicar. Se pide SOLO si está habilitado por configuración: si la
+ * app de Meta todavía no lo tiene activado, pedirlo rompe el login con
+ * "Invalid Scopes". Al activarlo, las cuentas ya conectadas deben reconectarse.
+ */
+const SCOPE_PUBLICAR = 'instagram_business_content_publish';
 
 const AUTORIZAR = 'https://www.instagram.com/oauth/authorize';
 const TOKEN_CORTO = 'https://api.instagram.com/oauth/access_token';
@@ -39,11 +45,16 @@ export interface InsightsMedio {
 }
 
 export class ClienteGraphMeta {
+  private readonly scopes: string;
+
   constructor(
     private readonly appId: string,
     private readonly appSecret: string,
     private readonly redirectUri: string,
-  ) {}
+    permitePublicar = false,
+  ) {
+    this.scopes = [...SCOPES_BASE, ...(permitePublicar ? [SCOPE_PUBLICAR] : [])].join(',');
+  }
 
   /** URL del diálogo de autorización de Instagram (la abre el usuario para conectar). */
   urlAutorizacion(state: string): string {
@@ -51,7 +62,7 @@ export class ClienteGraphMeta {
       client_id: this.appId,
       redirect_uri: this.redirectUri,
       response_type: 'code',
-      scope: SCOPES,
+      scope: this.scopes,
       state,
     });
     return `${AUTORIZAR}?${params.toString()}`;
@@ -163,6 +174,60 @@ export class ClienteGraphMeta {
       }
     }
     return { alcance: 0, impresiones: 0, guardados: 0, compartidos: 0 };
+  }
+
+  /**
+   * Paso 1 de publicar: crea el contenedor con la imagen y el texto. Devuelve el
+   * id del contenedor (todavía no está publicado).
+   */
+  async crearContenedor(
+    igUserId: string,
+    token: string,
+    imagenUrl: string,
+    texto: string,
+  ): Promise<string> {
+    const json = await this.postear<{ id: string }>(`${GRAPH}/${igUserId}/media`, {
+      image_url: imagenUrl,
+      caption: texto,
+      access_token: token,
+    });
+    return json.id;
+  }
+
+  /** Estado del contenedor (`FINISHED` = listo para publicar; relevante en videos). */
+  async estadoContenedor(contenedorId: string, token: string): Promise<string> {
+    const json = await this.pedir<{ status_code?: string }>(
+      `${GRAPH}/${contenedorId}?fields=status_code&access_token=${token}`,
+    );
+    return json.status_code ?? 'FINISHED';
+  }
+
+  /** Paso 2 de publicar: publica el contenedor. Devuelve el id del post en Instagram. */
+  async publicarContenedor(igUserId: string, token: string, contenedorId: string): Promise<string> {
+    const json = await this.postear<{ id: string }>(`${GRAPH}/${igUserId}/media_publish`, {
+      creation_id: contenedorId,
+      access_token: token,
+    });
+    return json.id;
+  }
+
+  /** Enlace público del post ya publicado. */
+  async permalink(mediaId: string, token: string): Promise<string | null> {
+    const json = await this.pedir<{ permalink?: string }>(
+      `${GRAPH}/${mediaId}?fields=permalink&access_token=${token}`,
+    );
+    return json.permalink ?? null;
+  }
+
+  private async postear<T>(url: string, campos: Record<string, string>): Promise<T> {
+    const respuesta = await fetch(url, { method: 'POST', body: new URLSearchParams(campos) });
+    const json = (await respuesta.json().catch(() => ({}))) as T & {
+      error?: { message?: string };
+    };
+    if (!respuesta.ok || json.error) {
+      throw new Error(json.error?.message ?? `Instagram API respondió ${respuesta.status}`);
+    }
+    return json;
   }
 
   private async pedir<T>(url: string): Promise<T> {

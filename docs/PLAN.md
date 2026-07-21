@@ -14,7 +14,11 @@
 - **Integración con Meta — LISTA.** Instagram Login (OAuth): conectar la cuenta de una marca y traer
   **métricas reales** a `MetricaPublicacion`. En modo desarrollo (funciona con cuentas tester);
   falta el App Review de Meta para producción abierta.
-- **Próximo: Fase 5 — Iteración post-testers** (ver abajo).
+- **Fase 5 — Sprints 1, 2 y 3 COMPLETOS y desplegados.** Salidas de IA legibles, aprobaciones en
+  tablero, producción aclarada, filtro por cliente, IA de Oportunidades de Crecimiento, permisos
+  ver/editar + Configuración, **workspace por marca activa** y **subida real de archivos**
+  (Cloudinary).
+- **Pendiente: Sprint 4 (#7 auto-publicación a Instagram)**, bloqueado hasta el App Review de Meta.
 
 ---
 
@@ -150,11 +154,11 @@ es un slice de su dueño (back + front), como siempre. Numeración `#n` = ítem 
   por marca) · #6 matriz de roles (qué **ve** y qué **edita** cada rol) · #3 contrato tarea ↔ publicación.
 
 **Orden sugerido (sprints):**
-1. **Quick wins:** #2 (IA legible) · #4 (aprobaciones kanban) · #3 (aclarar producción) · #8-Fase A
-   (filtro por cliente en todas las secciones).
-2. **Valor alto:** #1 (IA Oportunidades) · #6 (roles ver/editar + Configuración).
-3. **Arquitectura:** #8-Fase B (workspace por cliente) · #5 (subida de archivos).
-4. **Avanzado:** #7 (auto-posteo, tras App Review de Meta).
+1. ✅ **Quick wins:** #2 (IA legible) · #4 (aprobaciones kanban) · #3 (aclarar producción) ·
+   #8-Fase A (filtro por cliente en todas las secciones).
+2. ✅ **Valor alto:** #1 (IA Oportunidades) · #6 (roles ver/editar + Configuración).
+3. ✅ **Arquitectura:** #8-Fase B (workspace por cliente) · #5 (subida de archivos a Cloudinary).
+4. ⏳ **Avanzado:** #7 (auto-posteo) — **bloqueado por el App Review de Meta**.
 
 ---
 
