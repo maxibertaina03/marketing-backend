@@ -4,6 +4,11 @@ import { EstadoTarea, TipoTarea } from '@prisma/client';
 
 /** Filtros para listar tareas / armar el tablero de producción. */
 export class FiltrarTareasDto {
+  @ApiPropertyOptional({ description: 'Tareas de las publicaciones de un cliente (marca).' })
+  @IsOptional()
+  @IsString()
+  clienteId?: string;
+
   @ApiPropertyOptional({ description: 'Tareas de una publicación.' })
   @IsOptional()
   @IsString()
