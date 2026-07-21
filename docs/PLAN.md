@@ -6,9 +6,15 @@
 
 ## Estado actual
 
-- **Fase 0 — COMPLETA.** Ambos repos arrancan, compilan y autentican con Clerk. El frontend
-  consume `/salud`, `/organizaciones/mias` y `/membresias`; multi-tenancy por `organizacionId`.
-- **Próximo: Fase 1.** masita → Clientes + Equipo · capitan → Estrategia de Marca + Calendario.
+- **Fases 0-4 — COMPLETAS y en producción.** Backend en Render (+ Postgres), frontend en Vercel.
+  Todo el roadmap original está construido y desplegado: clientes, equipo, estrategia, calendario,
+  Centro de IA (contenido/estrategia/campañas), banco de ideas, biblioteca de copys, producción,
+  archivos, aprobaciones, portal del cliente, dashboard de métricas, IA de métricas, informes y
+  automatizaciones. Menú y rutas filtrados por rol.
+- **Integración con Meta — LISTA.** Instagram Login (OAuth): conectar la cuenta de una marca y traer
+  **métricas reales** a `MetricaPublicacion`. En modo desarrollo (funciona con cuentas tester);
+  falta el App Review de Meta para producción abierta.
+- **Próximo: Fase 5 — Iteración post-testers** (ver abajo).
 
 ---
 
@@ -108,9 +114,47 @@ Que un CM cargue clientes, defina su estrategia y planifique contenido en un cal
 - **masita:** Producción + Gestión de Archivos.
 - **capitan:** Centro de Aprobaciones + Portal del Cliente (rol `CLIENTE`, permisos restringidos).
 
-### Fase 4 — Métricas, Integraciones, Informes y Automatizaciones
-- **masita:** Integraciones Meta (OAuth + ingesta de métricas) + Dashboard por Cliente.
+### Fase 4 — Métricas, Integraciones, Informes y Automatizaciones ✅
+- **masita:** Integraciones Meta (OAuth Instagram Login + ingesta de métricas reales) + Dashboard
+  por Cliente.
 - **capitan:** IA de Métricas + Informes Automáticos + Automatizaciones (jobs).
+
+### Fase 5 — Iteración post-testers
+Mejoras surgidas del feedback de testers (Notion, 24/06/2026). Se ataca por **sprints**; cada ítem
+es un slice de su dueño (back + front), como siempre. Numeración `#n` = ítem del feedback.
+
+- **masita:**
+  - **Producción — claridad + vínculo con el calendario (#3):** hacer protagonista el campo
+    `Publicacion` de la tarea, permitir "＋ Nueva tarea" desde la publicación, y aclarar en la UI las
+    dos capas (estado editorial de la publicación vs. estado de la tarea). *Acuerda con capitán el
+    contrato de `contenido`.*
+  - **Archivos — subida real de multimedia (#5):** storage (Cloudinary/R2/S3) + endpoint de subida +
+    uploader con preview. `Archivo` guarda la URL resultante. Habilita además el auto-posteo (#7).
+  - **Configuración — infra de permisos (#6):** matriz **ver vs. editar** por rol en el back + página
+    **"Configuración"** (usuarios/roles, extiende `equipo`). Base ya hecha: menú por rol.
+  - **Navegación por cliente — infra (#8):** contexto de **"cliente activo"** (Fase B) + filtro por
+    cliente en sus secciones (archivos, producción; biblioteca de copys ya lo tiene).
+  - **Auto-publicación calendario → Instagram (#7):** Instagram Content Publishing API + job de
+    publicación programada. *Depende de #5 (imagen en URL pública) y del App Review de Meta.*
+- **capitan:**
+  - **IA "Oportunidades de Crecimiento" (#1):** nuevo botón en `ia-estrategia` que cruza marca +
+    público + objetivos + **métricas reales** y devuelve oportunidades accionables (IA consultora).
+    Reutiliza `ServicioIa`; evaluar deprecar el FODA por uso.
+  - **Salidas de IA legibles (#2):** aplicar el render legible de **Biblioteca de Copys** (componente
+    `SalidaContenido`) a **Banco de Ideas** y **Campañas** + desplegar/colapsar.
+  - **Aprobaciones como tablero (#4):** kanban por estado (En revisión / Aprobada / Rechazada, +
+    opcional Borrador/Programado/Publicado). El back ya expone los estados.
+  - **Navegación por cliente (#8):** filtro por cliente en sus secciones (estrategia, campañas, banco).
+  - **Permisos ver/editar (#6):** aplicar el gating en sus pantallas.
+- **Conjunto (acordar contrato antes de empezar):** #8 Fase B (selector de cliente global / workspace
+  por marca) · #6 matriz de roles (qué **ve** y qué **edita** cada rol) · #3 contrato tarea ↔ publicación.
+
+**Orden sugerido (sprints):**
+1. **Quick wins:** #2 (IA legible) · #4 (aprobaciones kanban) · #3 (aclarar producción) · #8-Fase A
+   (filtro por cliente en todas las secciones).
+2. **Valor alto:** #1 (IA Oportunidades) · #6 (roles ver/editar + Configuración).
+3. **Arquitectura:** #8-Fase B (workspace por cliente) · #5 (subida de archivos).
+4. **Avanzado:** #7 (auto-posteo, tras App Review de Meta).
 
 ---
 
