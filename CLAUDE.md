@@ -76,10 +76,15 @@ Nunca commitees `.env` ni `node_modules` (ya están en `.gitignore`).
 
 - **masita**: Fase 1 `clientes` + `equipo`; Fase 2 módulo `ia` (infra) + IA de Contenido +
   Biblioteca de Copys; Fase 3 `produccion` + `archivos`; Fase 4 integraciones Meta + dashboard
-  por cliente.
+  por cliente; Fase 5 producción+calendario (#3), archivos multimedia (#5), permisos ver/editar +
+  Configuración (#6), navegación por cliente infra (#8), auto-posteo (#7).
 - **capitan**: Fase 1 `estrategia-marca` + `contenido` (calendario); Fase 2 IA Estratégica +
   IA de Campañas + Banco de Ideas + Biblioteca de Campañas; Fase 3 `aprobaciones` +
-  `portal-cliente`; Fase 4 IA de Métricas + Informes + Automatizaciones.
+  `portal-cliente`; Fase 4 IA de Métricas + Informes + Automatizaciones; Fase 5 IA Oportunidades de
+  Crecimiento (#1), salidas de IA legibles (#2), aprobaciones kanban (#4), filtro por cliente (#8).
+
+Fases 1-4 completas y en producción. **Fase 5 = iteración post-testers**; el detalle está en
+`docs/PLAN.md`.
 
 Antes de cada fase se acuerda el **contrato de API** (DTOs + rutas en Swagger) para no pisarse.
 El plan completo lo tiene masita; pedíselo si necesitás el detalle.
