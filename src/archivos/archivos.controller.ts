@@ -15,6 +15,7 @@ import { ArchivosService } from './archivos.service';
 import { CrearArchivoDto } from './dto/crear-archivo.dto';
 import { ActualizarArchivoDto } from './dto/actualizar-archivo.dto';
 import { FiltrarArchivosDto } from './dto/filtrar-archivos.dto';
+import { FirmarSubidaDto } from './dto/firmar-subida.dto';
 import { GuardRoles } from '../comun/guards/guard-roles';
 import { Roles } from '../comun/decoradores/roles.decorator';
 import { OrgActual } from '../comun/decoradores/contexto-actual.decorator';
@@ -29,6 +30,15 @@ import { OrgActual } from '../comun/decoradores/contexto-actual.decorator';
 @Controller('archivos')
 export class ArchivosController {
   constructor(private readonly archivos: ArchivosService) {}
+
+  @Post('firma')
+  @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.DISENADOR)
+  @ApiOperation({
+    summary: 'Firma una subida directa a Cloudinary (el archivo no pasa por el backend).',
+  })
+  firmarSubida(@OrgActual() organizacionId: string, @Body() dto: FirmarSubidaDto) {
+    return this.archivos.firmarSubida(organizacionId, dto);
+  }
 
   @Post()
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.DISENADOR)

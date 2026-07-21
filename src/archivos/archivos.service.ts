@@ -1,17 +1,62 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearArchivoDto } from './dto/crear-archivo.dto';
 import { ActualizarArchivoDto } from './dto/actualizar-archivo.dto';
 import { FiltrarArchivosDto } from './dto/filtrar-archivos.dto';
+import { FirmarSubidaDto } from './dto/firmar-subida.dto';
 
 /**
- * Gestión de Archivos (Fase 2, slice de masita). MVP: guarda metadata + URL al
- * hosting externo (Render free no tiene disco persistente). Multi-tenant.
+ * Gestión de Archivos (Fase 2, slice de masita). Guarda metadata + URL; el binario
+ * vive en Cloudinary. La subida es **directa desde el navegador**: el backend solo
+ * firma la operación (Render free no debe proxyear archivos pesados). Multi-tenant.
  */
 @Injectable()
 export class ArchivosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  /**
+   * Firma una subida directa a Cloudinary para una marca de la organización.
+   * Devuelve los datos que el navegador manda junto al archivo. La carpeta acota
+   * los archivos por organización y cliente.
+   */
+  async firmarSubida(organizacionId: string, dto: FirmarSubidaDto) {
+    await this.verificarCliente(organizacionId, dto.clienteId);
+
+    const cloudName = this.config.get<string>('CLOUDINARY_CLOUD_NAME') ?? '';
+    const apiKey = this.config.get<string>('CLOUDINARY_API_KEY') ?? '';
+    const apiSecret = this.config.get<string>('CLOUDINARY_API_SECRET') ?? '';
+    if (!cloudName || !apiKey || !apiSecret) {
+      throw new ServiceUnavailableException(
+        'La subida de archivos no está configurada (faltan credenciales de Cloudinary).',
+      );
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = `contentos/${organizacionId}/${dto.clienteId}`;
+    // Cloudinary firma los parámetros ordenados alfabéticamente + el api_secret.
+    const aFirmar = `folder=${folder}&timestamp=${timestamp}`;
+    const signature = createHash('sha1').update(`${aFirmar}${apiSecret}`).digest('hex');
+
+    return {
+      url: `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+      cloudName,
+      apiKey,
+      timestamp,
+      folder,
+      signature,
+    };
+  }
 
   /** Registra un archivo de una marca de la organización. */
   async crear(organizacionId: string, dto: CrearArchivoDto) {
