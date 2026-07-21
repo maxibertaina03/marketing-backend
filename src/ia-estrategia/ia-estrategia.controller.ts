@@ -20,6 +20,7 @@ import { GenerarEstrategiaMensualDto } from './dto/generar-estrategia-mensual.dt
 import { GenerarFodaDto } from './dto/generar-foda.dto';
 import { GenerarBuyerPersonaDto } from './dto/generar-buyer-persona.dto';
 import { GenerarPilaresDto } from './dto/generar-pilares.dto';
+import { GenerarOportunidadesDto } from './dto/generar-oportunidades.dto';
 
 @ApiTags('ia-estrategia')
 @ApiBearerAuth()
@@ -70,6 +71,17 @@ export class IaEstrategiaController {
     @Body() dto: GenerarPilaresDto,
   ) {
     return this.servicio.generarPilares(organizacionId, dto);
+  }
+
+  @Post('oportunidades')
+  @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Genera oportunidades de crecimiento cruzando estrategia y métricas reales' })
+  generarOportunidades(
+    @OrgActual() organizacionId: string,
+    @Body() dto: GenerarOportunidadesDto,
+  ) {
+    return this.servicio.generarOportunidades(organizacionId, dto);
   }
 
   @Get('banco')
