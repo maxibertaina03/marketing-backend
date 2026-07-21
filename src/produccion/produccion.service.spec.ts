@@ -102,4 +102,19 @@ describe('ProduccionService', () => {
     expect(tablero.HECHA).toHaveLength(1);
     expect(tablero.EN_CURSO).toHaveLength(0);
   });
+
+  it('filtra el tablero por cliente vía la publicación', async () => {
+    prisma.tarea.findMany.mockResolvedValue([]);
+
+    await service.tablero('org_1', { clienteId: 'cli_1' });
+
+    expect(prisma.tarea.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizacionId: 'org_1',
+          publicacion: { clienteId: 'cli_1' },
+        }),
+      }),
+    );
+  });
 });

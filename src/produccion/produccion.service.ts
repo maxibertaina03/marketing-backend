@@ -14,7 +14,7 @@ const INCLUDE_TAREA = {
       usuario: { select: { id: true, nombre: true, email: true } },
     },
   },
-  publicacion: { select: { id: true, titulo: true, estado: true } },
+  publicacion: { select: { id: true, titulo: true, estado: true, clienteId: true } },
 } satisfies Prisma.TareaInclude;
 
 /**
@@ -115,6 +115,7 @@ export class ProduccionService {
   private armarWhere(organizacionId: string, filtros: FiltrarTareasDto): Prisma.TareaWhereInput {
     return {
       organizacionId,
+      ...(filtros.clienteId ? { publicacion: { clienteId: filtros.clienteId } } : {}),
       ...(filtros.publicacionId ? { publicacionId: filtros.publicacionId } : {}),
       ...(filtros.asignadoId ? { asignadoId: filtros.asignadoId } : {}),
       ...(filtros.estado ? { estado: filtros.estado } : {}),
