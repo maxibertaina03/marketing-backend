@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TipoBotonIa" ADD VALUE 'OPORTUNIDADES';

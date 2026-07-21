@@ -6,6 +6,7 @@ import { GenerarEstrategiaMensualDto } from './dto/generar-estrategia-mensual.dt
 import { GenerarFodaDto } from './dto/generar-foda.dto';
 import { GenerarBuyerPersonaDto } from './dto/generar-buyer-persona.dto';
 import { GenerarPilaresDto } from './dto/generar-pilares.dto';
+import { GenerarOportunidadesDto } from './dto/generar-oportunidades.dto';
 
 @Injectable()
 export class IaEstrategiaService {
@@ -153,6 +154,46 @@ export class IaEstrategiaService {
     });
   }
 
+  async generarOportunidades(organizacionId: string, dto: GenerarOportunidadesDto) {
+    const contexto = await this.armarContextoMarca(organizacionId, dto.clienteId, dto.estrategiaId);
+    const contextoMetricas = await this.armarContextoMetricas(organizacionId, dto.clienteId);
+
+    return this.servicioIa.generar<{
+      resumen: string;
+      oportunidades: { titulo: string; descripcion: string; accion: string; impacto: 'ALTO' | 'MEDIO' | 'BAJO' }[];
+    }>({
+      organizacionId,
+      clienteId: dto.clienteId,
+      estrategiaId: dto.estrategiaId,
+      tipoBoton: TipoBotonIa.OPORTUNIDADES,
+      contextoMarca: `${contexto}\n\n${contextoMetricas}`,
+      instruccion:
+        'Analizá la estrategia de la marca junto a sus métricas reales de las últimas semanas. ' +
+        'Identificá entre 4 y 6 oportunidades concretas de crecimiento en redes sociales. ' +
+        'Para cada oportunidad indicá un título, descripción, una acción inmediata a tomar y su nivel de impacto esperado (ALTO, MEDIO o BAJO).',
+      esquemaSalida: {
+        type: 'object',
+        properties: {
+          resumen: { type: 'string', description: 'Síntesis ejecutiva del análisis y el panorama actual de la marca' },
+          oportunidades: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                titulo: { type: 'string' },
+                descripcion: { type: 'string' },
+                accion: { type: 'string', description: 'Acción concreta e inmediata a tomar' },
+                impacto: { type: 'string', enum: ['ALTO', 'MEDIO', 'BAJO'] },
+              },
+              required: ['titulo', 'descripcion', 'accion', 'impacto'],
+            },
+          },
+        },
+        required: ['resumen', 'oportunidades'],
+      },
+    });
+  }
+
   async listarBanco(
     organizacionId: string,
     filtros: { clienteId?: string; estrategiaId?: string; tipoBoton?: TipoBotonIa; pagina?: number; limite?: number },
@@ -169,6 +210,7 @@ export class IaEstrategiaService {
           TipoBotonIa.FODA,
           TipoBotonIa.BUYER_PERSONA,
           TipoBotonIa.PILARES,
+          TipoBotonIa.OPORTUNIDADES,
         ],
       },
       ...(filtros.clienteId ? { clienteId: filtros.clienteId } : {}),
@@ -187,6 +229,50 @@ export class IaEstrategiaService {
     ]);
 
     return { total, pagina, limite, items };
+  }
+
+  private async armarContextoMetricas(organizacionId: string, clienteId: string): Promise<string> {
+    const hace60Dias = new Date();
+    hace60Dias.setDate(hace60Dias.getDate() - 60);
+
+    const metricas = await this.prisma.metricaPublicacion.findMany({
+      where: { organizacionId, clienteId, fecha: { gte: hace60Dias } },
+      orderBy: { fecha: 'desc' },
+      take: 30,
+      select: {
+        canal: true,
+        fecha: true,
+        impresiones: true,
+        alcance: true,
+        meGusta: true,
+        comentarios: true,
+        compartidos: true,
+        guardados: true,
+        clics: true,
+      },
+    });
+
+    if (metricas.length === 0) return 'MÉTRICAS REALES: Sin datos de métricas disponibles aún.';
+
+    const porCanal: Record<string, { impresiones: number; alcance: number; interacciones: number; count: number }> = {};
+    for (const m of metricas) {
+      const canal = m.canal as string;
+      if (!porCanal[canal]) porCanal[canal] = { impresiones: 0, alcance: 0, interacciones: 0, count: 0 };
+      porCanal[canal].impresiones += m.impresiones;
+      porCanal[canal].alcance += m.alcance;
+      porCanal[canal].interacciones += m.meGusta + m.comentarios + m.compartidos + m.guardados;
+      porCanal[canal].count++;
+    }
+
+    const lineas = ['MÉTRICAS REALES (últimos 60 días):'];
+    for (const [canal, stats] of Object.entries(porCanal)) {
+      const engagementPct = stats.alcance > 0 ? ((stats.interacciones / stats.alcance) * 100).toFixed(2) : '0';
+      lineas.push(
+        `${canal}: ${stats.count} publicaciones · ${stats.impresiones.toLocaleString('es-AR')} impresiones · ${stats.alcance.toLocaleString('es-AR')} alcance · ${engagementPct}% engagement promedio`,
+      );
+    }
+
+    return lineas.join('\n');
   }
 
   private async armarContextoMarca(
