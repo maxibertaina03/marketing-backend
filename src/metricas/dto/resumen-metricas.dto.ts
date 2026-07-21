@@ -7,6 +7,14 @@ export class ResumenMetricasDto {
   @IsString()
   clienteId!: string;
 
+  @ApiPropertyOptional({
+    example: 'REELS',
+    description: 'Tipo de medio de Instagram: FEED (publicaciones) o REELS.',
+  })
+  @IsOptional()
+  @IsString()
+  tipoMedio?: string;
+
   @ApiPropertyOptional({ example: '2026-06-01' })
   @IsOptional()
   @IsDateString()

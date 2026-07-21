@@ -13,6 +13,14 @@ export class FiltrarMetricasDto {
   @IsString()
   publicacionId?: string;
 
+  @ApiPropertyOptional({
+    example: 'REELS',
+    description: 'Tipo de medio de Instagram: FEED (publicaciones) o REELS.',
+  })
+  @IsOptional()
+  @IsString()
+  tipoMedio?: string;
+
   @ApiPropertyOptional({ example: '2026-06-01', description: 'Desde (inclusive).' })
   @IsOptional()
   @IsDateString()

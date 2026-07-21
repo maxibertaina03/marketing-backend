@@ -278,6 +278,8 @@ export class MetaService {
       timestamp: string | null;
       permalink: string | null;
       mediaUrl: string | null;
+      tipo: string | null;
+      tipoProducto: string | null;
     },
   ) {
     const existente = await this.prisma.publicacion.findFirst({
@@ -294,6 +296,7 @@ export class MetaService {
         organizacionId,
         clienteId,
         metaMediaId: medio.id,
+        tipoMedioMeta: medio.tipoProducto ?? medio.tipo,
         titulo,
         contenido: medio.caption ?? '',
         canal: Canal.INSTAGRAM,

@@ -259,6 +259,9 @@ model Publicacion {
   metaMediaId     String?
   // Momento en que se publicó de verdad en la red social.
   fechaPublicacion DateTime?
+  // Tipo de medio en Instagram (FEED, REELS…). Permite filtrar métricas por
+  // publicaciones vs reels.
+  tipoMedioMeta   String?
   canal           Canal
   estado          EstadoContenido    @default(BORRADOR)
   motivoRechazo   String?            @db.Text
