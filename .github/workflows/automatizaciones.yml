@@ -1,0 +1,81 @@
+name: Automatizaciones
+
+# Dispara las tareas programadas del backend (que están protegidas con x-job-secret).
+# Ojo: los cron de GitHub Actions solo corren desde la rama por defecto (main).
+
+on:
+  schedule:
+    # Publicar las programadas: cada hora, en punto.
+    - cron: '0 * * * *'
+    # Informes mensuales: el día 1 de cada mes, 06:00 UTC.
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      tarea:
+        description: Qué tarea correr a mano
+        type: choice
+        default: publicar-programadas
+        options:
+          - publicar-programadas
+          - generar-informes-mensuales
+          - ambas
+
+env:
+  BASE: https://contentos-backend-0qns.onrender.com/api
+
+jobs:
+  publicar-programadas:
+    name: Publicar programadas
+    if: >-
+      github.event.schedule == '0 * * * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.tarea == 'publicar-programadas' || inputs.tarea == 'ambas'))
+    runs-on: ubuntu-latest
+    steps:
+      # El plan free de Render duerme el servicio: la primera petición lo despierta
+      # y puede tardar ~30-50s. La ignoramos si falla; el paso real reintenta.
+      - name: Despertar el backend
+        run: curl -sS -o /dev/null --max-time 90 --retry 3 --retry-delay 15 "$BASE/salud" || true
+
+      - name: Ejecutar
+        env:
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
+            -X POST "$BASE/automatizaciones/publicar-programadas" \
+            -H "x-job-secret: $JOB_SECRET" \
+            --max-time 180 --retry 2 --retry-delay 20)
+          echo "HTTP $codigo"
+          cat respuesta.json || true
+          echo
+          case "$codigo" in
+            200|201) echo "OK" ;;
+            *) echo "::error::La tarea falló (HTTP $codigo)"; exit 1 ;;
+          esac
+
+  generar-informes-mensuales:
+    name: Generar informes mensuales
+    if: >-
+      github.event.schedule == '0 6 1 * *' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.tarea == 'generar-informes-mensuales' || inputs.tarea == 'ambas'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar el backend
+        run: curl -sS -o /dev/null --max-time 90 --retry 3 --retry-delay 15 "$BASE/salud" || true
+
+      - name: Ejecutar
+        env:
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
+            -X POST "$BASE/automatizaciones/generar-informes-mensuales" \
+            -H "x-job-secret: $JOB_SECRET" \
+            --max-time 300 --retry 2 --retry-delay 30)
+          echo "HTTP $codigo"
+          cat respuesta.json || true
+          echo
+          case "$codigo" in
+            200|201) echo "OK" ;;
+            *) echo "::error::La tarea falló (HTTP $codigo)"; exit 1 ;;
+          esac
