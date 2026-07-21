@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TipoArchivo } from '@prisma/client';
 import { ArchivosService } from './archivos.service';
@@ -32,7 +33,21 @@ describe('ArchivosService', () => {
     };
 
     const modulo = await Test.createTestingModule({
-      providers: [ArchivosService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ArchivosService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (clave: string) =>
+              ({
+                CLOUDINARY_CLOUD_NAME: 'demo',
+                CLOUDINARY_API_KEY: '123',
+                CLOUDINARY_API_SECRET: 'secreto',
+              })[clave],
+          },
+        },
+      ],
     }).compile();
 
     service = modulo.get(ArchivosService);
@@ -104,4 +119,16 @@ describe('ArchivosService', () => {
 
     await expect(service.obtener('org_1', 'ajeno')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('firmarSubida: valida el cliente y devuelve la firma con carpeta por org/cliente', async () => {
+    prisma.cliente.findFirst.mockResolvedValue({ id: 'cli_1' });
+
+    const firma = await service.firmarSubida('org_1', { clienteId: 'cli_1' });
+
+    expect(firma.folder).toBe('contentos/org_1/cli_1');
+    expect(firma.url).toContain('https://api.cloudinary.com/v1_1/demo/');
+    expect(firma.apiKey).toBe('123');
+    expect(firma.signature).toHaveLength(40); // sha1 hex
+  });
+
 });
