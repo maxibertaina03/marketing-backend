@@ -254,8 +254,11 @@ model Publicacion {
   titulo          String
   contenido       String            @db.Text
   imagenUrl       String?
-  // ID del post real en Instagram/Facebook (cuando la publicación viene de Meta).
+  // ID del post real en Instagram/Facebook (cuando la publicación viene de Meta
+  // o fue publicada desde acá). Sirve para traer después sus métricas.
   metaMediaId     String?
+  // Momento en que se publicó de verdad en la red social.
+  fechaPublicacion DateTime?
   canal           Canal
   estado          EstadoContenido    @default(BORRADOR)
   motivoRechazo   String?            @db.Text

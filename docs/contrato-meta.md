@@ -28,7 +28,22 @@ Todos bajo `/api/meta`. Requieren sesión salvo el `callback` (lo invoca Meta).
 | `GET` | `/callback?code=&state=` | público | Meta redirige acá. Guarda la conexión y **redirige al front** a `/clientes/:id?meta=conectado` (o `meta=error` / `meta=sin_instagram`). |
 | `GET` | `/estado?clienteId=` | ADMIN, CM, ANALISTA | `{ conectado, igUsername?, pageNombre?, ultimaSync?, tokenExpiraEn? }`. |
 | `POST` | `/sincronizar` `{ clienteId }` | ADMIN, CM | Trae los últimos medios + insights y los guarda como snapshot de hoy. Devuelve `{ medios, sincronizadas }`. |
+| `POST` | `/publicar` `{ publicacionId }` | ADMIN, CM | **Publica en Instagram** una publicación del calendario. Devuelve `{ metaMediaId, permalink }`. |
 | `DELETE`| `/conexion?clienteId=` | ADMIN, CM | Borra la conexión. |
+
+### Publicar (`POST /meta/publicar`)
+
+Flujo interno (Graph API): **crear contenedor** → esperar a que esté `FINISHED` → **publicar**.
+Al terminar guarda en la publicación: `estado = PUBLICADO`, `metaMediaId` (así la sincronización
+de métricas la toma después sola) y `fechaPublicacion`.
+
+Requisitos y errores (400) claros para el front:
+- La publicación debe ser de canal **INSTAGRAM** y no estar ya publicada (`metaMediaId` vacío).
+- Debe tener **`imagenUrl` pública** — Instagram no permite publicar solo texto.
+- La **marca** de esa publicación debe tener Instagram conectado (`ConexionMeta`).
+- Requiere el permiso `instagram_business_content_publish`: se pide en el OAuth **solo si**
+  `META_PUBLICAR_HABILITADO="true"` (si la app de Meta no lo tiene habilitado, pedirlo rompe el
+  login). Al activarlo, **las cuentas ya conectadas deben reconectarse**.
 
 ## Flujo
 
