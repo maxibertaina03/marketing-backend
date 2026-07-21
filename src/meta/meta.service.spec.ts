@@ -1,4 +1,8 @@
-import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MetaService } from './meta.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,5 +67,62 @@ describe('MetaService', () => {
     const url = await service.procesarCallback('code', 'state.falso');
 
     expect(url).toBe('https://front.test/clientes?meta=error');
+  });
+
+  describe('publicar', () => {
+    const pubBase = {
+      id: 'pub1',
+      clienteId: 'cli1',
+      contenido: 'Hola',
+      imagenUrl: 'https://cdn.test/foto.jpg',
+      canal: 'INSTAGRAM',
+      estado: 'APROBADO',
+      metaMediaId: null,
+    };
+
+    it('404 si la publicación no es de la organización', async () => {
+      const prisma = { publicacion: { findFirst: jest.fn().mockResolvedValue(null) } };
+      const service = crear(CONFIG_OK, prisma);
+
+      await expect(service.publicar('org1', { publicacionId: 'ajena' })).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('400 si la publicación no tiene imagen con URL pública', async () => {
+      const prisma = {
+        publicacion: { findFirst: jest.fn().mockResolvedValue({ ...pubBase, imagenUrl: null }) },
+      };
+      const service = crear(CONFIG_OK, prisma);
+
+      await expect(service.publicar('org1', { publicacionId: 'pub1' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('400 si ya fue publicada en Instagram', async () => {
+      const prisma = {
+        publicacion: {
+          findFirst: jest.fn().mockResolvedValue({ ...pubBase, metaMediaId: 'ig_9' }),
+        },
+      };
+      const service = crear(CONFIG_OK, prisma);
+
+      await expect(service.publicar('org1', { publicacionId: 'pub1' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+
+    it('400 si la marca no tiene Instagram conectado', async () => {
+      const prisma = {
+        publicacion: { findFirst: jest.fn().mockResolvedValue(pubBase) },
+        conexionMeta: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+      const service = crear(CONFIG_OK, prisma);
+
+      await expect(service.publicar('org1', { publicacionId: 'pub1' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
   });
 });

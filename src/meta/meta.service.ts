@@ -11,6 +11,7 @@ import { Canal, EstadoContenido } from '@prisma/client';
 import { createHmac } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClienteGraphMeta } from './cliente-graph';
+import { PublicarPublicacionDto } from './dto/publicar-publicacion.dto';
 
 /** Datos que viajan firmados en el `state` del OAuth (sobreviven al redirect). */
 interface EstadoOAuth {
@@ -42,9 +43,12 @@ export class MetaService {
     this.appSecret = config.get<string>('META_IG_APP_SECRET') ?? '';
     const redirectUri = config.get<string>('META_REDIRECT_URI') ?? '';
     this.frontendUrl = config.get<string>('ORIGEN_FRONTEND') ?? '';
+    // Solo pedimos el permiso de publicación si la app de Meta ya lo tiene
+    // habilitado (si no, el login falla con "Invalid Scopes").
+    const permitePublicar = config.get<string>('META_PUBLICAR_HABILITADO') === 'true';
     this.graph =
       appId && this.appSecret && redirectUri
-        ? new ClienteGraphMeta(appId, this.appSecret, redirectUri)
+        ? new ClienteGraphMeta(appId, this.appSecret, redirectUri, permitePublicar)
         : null;
   }
 
@@ -171,6 +175,95 @@ export class MetaService {
       data: { ultimaSync: new Date() },
     });
     return { medios: medios.length, sincronizadas };
+  }
+
+  /**
+   * Publica en Instagram una publicación del calendario. Flujo de la Graph API:
+   * crear contenedor → esperar a que esté listo → publicar. Guarda el id del post
+   * en `metaMediaId`, así la sincronización de métricas lo toma después solo.
+   */
+  async publicar(organizacionId: string, dto: PublicarPublicacionDto) {
+    const graph = this.exigirGraph();
+
+    const publicacion = await this.prisma.publicacion.findFirst({
+      where: { id: dto.publicacionId, organizacionId },
+      select: {
+        id: true,
+        clienteId: true,
+        contenido: true,
+        imagenUrl: true,
+        canal: true,
+        estado: true,
+        metaMediaId: true,
+      },
+    });
+    if (!publicacion) {
+      throw new NotFoundException('La publicación no existe en esta organización.');
+    }
+    if (publicacion.canal !== Canal.INSTAGRAM) {
+      throw new BadRequestException('Por ahora solo se puede publicar en Instagram.');
+    }
+    if (publicacion.metaMediaId) {
+      throw new BadRequestException('Esta publicación ya fue publicada en Instagram.');
+    }
+    if (!publicacion.imagenUrl?.startsWith('http')) {
+      throw new BadRequestException(
+        'La publicación necesita una imagen con URL pública (Instagram no permite publicar solo texto).',
+      );
+    }
+
+    const conexion = await this.prisma.conexionMeta.findFirst({
+      where: { clienteId: publicacion.clienteId, organizacionId },
+    });
+    if (!conexion) {
+      throw new BadRequestException('La marca de esta publicación no tiene Instagram conectado.');
+    }
+
+    try {
+      const contenedor = await graph.crearContenedor(
+        conexion.igUserId,
+        conexion.accessToken,
+        publicacion.imagenUrl,
+        publicacion.contenido ?? '',
+      );
+      await this.esperarContenedor(graph, contenedor, conexion.accessToken);
+      const mediaId = await graph.publicarContenedor(
+        conexion.igUserId,
+        conexion.accessToken,
+        contenedor,
+      );
+      const permalink = await graph.permalink(mediaId, conexion.accessToken).catch(() => null);
+
+      await this.prisma.publicacion.update({
+        where: { id: publicacion.id },
+        data: {
+          estado: EstadoContenido.PUBLICADO,
+          metaMediaId: mediaId,
+          fechaPublicacion: new Date(),
+        },
+      });
+      return { metaMediaId: mediaId, permalink };
+    } catch (e) {
+      const mensaje = e instanceof Error ? e.message : 'Error desconocido';
+      this.logger.error(`No se pudo publicar ${publicacion.id}: ${mensaje}`);
+      throw new BadRequestException(`Instagram rechazó la publicación: ${mensaje}`);
+    }
+  }
+
+  /** Espera a que el contenedor esté listo (los videos tardan; las imágenes salen al toque). */
+  private async esperarContenedor(
+    graph: ClienteGraphMeta,
+    contenedorId: string,
+    token: string,
+    intentos = 5,
+  ) {
+    for (let i = 0; i < intentos; i++) {
+      const estado = await graph.estadoContenedor(contenedorId, token);
+      if (estado === 'FINISHED') return;
+      if (estado === 'ERROR') throw new Error('Instagram no pudo procesar el archivo.');
+      await new Promise((resolver) => setTimeout(resolver, 2000));
+    }
+    throw new Error('El archivo tardó demasiado en procesarse en Instagram.');
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────

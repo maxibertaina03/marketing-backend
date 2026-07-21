@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { Rol } from '@prisma/client';
 import { MetaService } from './meta.service';
 import { ClienteMetaDto } from './dto/conectar-meta.dto';
+import { PublicarPublicacionDto } from './dto/publicar-publicacion.dto';
 import { GuardRoles } from '../comun/guards/guard-roles';
 import { Roles } from '../comun/decoradores/roles.decorator';
 import { Publico } from '../comun/decoradores/publico.decorator';
@@ -57,6 +58,14 @@ export class MetaController {
   @ApiOperation({ summary: 'Trae métricas reales de Instagram y las guarda como snapshot.' })
   sincronizar(@OrgActual() organizacionId: string, @Body() dto: ClienteMetaDto) {
     return this.meta.sincronizar(organizacionId, dto.clienteId);
+  }
+
+  @Post('publicar')
+  @UseGuards(GuardRoles)
+  @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER)
+  @ApiOperation({ summary: 'Publica en Instagram una publicación aprobada del calendario.' })
+  publicar(@OrgActual() organizacionId: string, @Body() dto: PublicarPublicacionDto) {
+    return this.meta.publicar(organizacionId, dto);
   }
 
   @Delete('conexion')
