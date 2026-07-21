@@ -22,12 +22,12 @@ export class AprobacionesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listar(organizacionId: string, filtros: FiltrarAprobacionesDto) {
-    const { clienteId, pagina = 1, limite = 20 } = filtros;
+    const { clienteId, estado = EstadoContenido.EN_REVISION, pagina = 1, limite = 20 } = filtros;
     const skip = (pagina - 1) * limite;
 
     const where = {
       organizacionId,
-      estado: EstadoContenido.EN_REVISION,
+      estado,
       ...(clienteId ? { clienteId } : {}),
     };
 
