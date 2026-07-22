@@ -36,6 +36,15 @@ export class MetricasController {
     return this.metricas.listar(organizacionId, filtros);
   }
 
+  @Get('detalle')
+  @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.ANALISTA)
+  @ApiOperation({
+    summary: 'Detalle por publicación: fecha de publicación, total y evolución diaria.',
+  })
+  detalle(@OrgActual() organizacionId: string, @Query() dto: ResumenMetricasDto) {
+    return this.metricas.detalle(organizacionId, dto);
+  }
+
   @Get('resumen')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.ANALISTA)
   @ApiOperation({ summary: 'Resumen agregado de un cliente (totales, por canal, serie temporal).' })
