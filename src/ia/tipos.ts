@@ -23,8 +23,18 @@ export interface SolicitudGeneracion {
 
   /**
    * Contexto ESTABLE de la marca (estrategia, base de conocimiento, tono…).
-   * Es grande y se reusa entre muchas generaciones de la misma marca:
-   * va al final del system y se cachea (cache_control) para ahorrar ~90%.
+   * Se reusa entre muchas generaciones de la misma marca, así que va al final
+   * del system marcado con `cache_control`.
+   *
+   * OJO: hoy **no se está cacheando nada**. El caché tiene un mínimo de tokens
+   * por modelo (Haiku 4.5: 4.096; Opus 4.8 y Sonnet 5: 1.024) y nuestros
+   * contextos rondan los 1.200 tokens *en total*. Por debajo del mínimo, la API
+   * procesa la petición sin cachear y **no devuelve ningún error**: se detecta
+   * solo mirando que `tokensCacheCreacion` y `tokensCacheLectura` queden en 0
+   * (medido en producción el 22/07/2026, ver `scripts/medir-costo-ia.ts`).
+   *
+   * O sea: el ahorro por caché todavía no existe. Empezaría a existir si los
+   * contextos de marca crecen bastante, o con un modelo de mínimo más bajo.
    */
   contextoMarca: string;
 

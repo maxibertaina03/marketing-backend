@@ -19,8 +19,13 @@ import { PrismaClient } from '@prisma/client';
 const PRECIOS: Record<string, Precio> = {
   'claude-opus-4-8': { entrada: 5, salida: 25, cacheEscritura: 6.25, cacheLectura: 0.5 },
   'claude-sonnet-5': { entrada: 2, salida: 10, cacheEscritura: 2.5, cacheLectura: 0.2 },
+  'claude-haiku-4-5': { entrada: 1, salida: 5, cacheEscritura: 1.25, cacheLectura: 0.1 },
+  // Mismo modelo con la versión fijada: se factura igual.
   'claude-haiku-4-5-20251001': { entrada: 1, salida: 5, cacheEscritura: 1.25, cacheLectura: 0.1 },
 };
+
+/** Modelos que se comparan en "el mismo trabajo con otro modelo" (sin alias repetidos). */
+const COMPARABLES = ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'];
 
 interface Precio {
   entrada: number;
@@ -88,6 +93,11 @@ async function main() {
   }
 
   const usables = generaciones.filter((g) => PRECIOS[g.modelo]);
+  if (usables.length === 0) {
+    console.log('No queda ninguna generación con precio conocido: cargá los precios y volvé a correr.');
+    await prisma.$disconnect();
+    return;
+  }
 
   console.log('═══ COSTO REAL DE IA ═══\n');
   console.log(`Generaciones registradas: ${generaciones.length}`);
@@ -182,7 +192,8 @@ async function main() {
     totales.cacheEscritura += datos.tokens.cacheEscritura;
     totales.cacheLectura += datos.tokens.cacheLectura;
   }
-  for (const [modelo, precio] of Object.entries(PRECIOS)) {
+  for (const modelo of COMPARABLES) {
+    const precio = PRECIOS[modelo];
     const total = costo(totales, precio);
     const porGeneracion = total / cantidadTotal;
     const diferencia = total / costoTotal;
