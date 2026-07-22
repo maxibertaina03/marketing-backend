@@ -209,6 +209,36 @@ export class MetricasService {
       .sort((a, b) => (b.fechaPublicacion ?? '').localeCompare(a.fechaPublicacion ?? ''));
   }
 
+  /**
+   * Serie diaria de la CUENTA de Instagram (alcance, vistas, visitas al perfil y
+   * seguidores). A diferencia de las publicaciones, estos valores ya son diarios:
+   * los entrega Instagram así, no hay que calcular diferencias.
+   */
+  async cuenta(organizacionId: string, dto: ResumenMetricasDto) {
+    await this.verificarCliente(organizacionId, dto.clienteId);
+    const fecha: Prisma.DateTimeFilter = {};
+    if (dto.desde) fecha.gte = new Date(dto.desde);
+    if (dto.hasta) fecha.lte = new Date(dto.hasta);
+
+    const dias = await this.prisma.metricaCuenta.findMany({
+      where: {
+        organizacionId,
+        clienteId: dto.clienteId,
+        ...(dto.desde || dto.hasta ? { fecha } : {}),
+      },
+      orderBy: { fecha: 'asc' },
+      select: {
+        fecha: true,
+        alcance: true,
+        vistas: true,
+        visitasPerfil: true,
+        seguidores: true,
+      },
+    });
+
+    return dias.map((d) => ({ ...d, fecha: d.fecha.toISOString().slice(0, 10) }));
+  }
+
   // ── helpers ───────────────────────────────────────────────────────────────
 
   private armarWhere(

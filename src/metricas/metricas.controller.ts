@@ -36,6 +36,15 @@ export class MetricasController {
     return this.metricas.listar(organizacionId, filtros);
   }
 
+  @Get('cuenta')
+  @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.ANALISTA)
+  @ApiOperation({
+    summary: 'Serie diaria de la cuenta de Instagram (alcance, visitas al perfil…).',
+  })
+  cuenta(@OrgActual() organizacionId: string, @Query() dto: ResumenMetricasDto) {
+    return this.metricas.cuenta(organizacionId, dto);
+  }
+
   @Get('detalle')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.ANALISTA)
   @ApiOperation({

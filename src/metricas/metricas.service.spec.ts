@@ -181,7 +181,6 @@ describe('MetricasService', () => {
       expect(item.serie.map((d) => d.impresiones)).toEqual([100, 100]);
     });
   });
-
 });
 
 function mfila(publicacionId: string, fecha: string, canal: Canal, vals: Record<string, number>) {
