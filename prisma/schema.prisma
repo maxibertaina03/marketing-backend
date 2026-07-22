@@ -79,6 +79,33 @@ enum TipoBotonIa {
   OTRO
 }
 
+// ─── Fase 6: Notificaciones y planes ───
+
+/// Plan comercial contratado por una organización. Define sus límites (marcas,
+/// usuarios internos, cuota de IA) y qué funcionalidades tiene habilitadas.
+/// PRUEBA es Agency completo por 14 días; al vencer cae a STARTER.
+enum PlanSuscripcion {
+  PRUEBA
+  STARTER
+  AGENCY
+  AGENCY_PRO
+  ENTERPRISE
+}
+
+/// Tipo de aviso del centro de notificaciones. Determina el ícono y el color en
+/// el panel; el texto lo arma cada regla (o el evento que la emite).
+enum TipoNotificacion {
+  APROBACIONES_PENDIENTES
+  PUBLICACION_APROBADA
+  PUBLICACION_RECHAZADA
+  DIAS_SIN_PUBLICAR
+  CAMPANA_POR_TERMINAR
+  TAREA_ASIGNADA
+  INSTAGRAM_DESCONECTADO
+  CUOTA_IA_CERCA
+  CUOTA_IA_AGOTADA
+}
+
 // ─── Fase 3: Producción y Gestión de Archivos ───
 
 /// Tipo de tarea dentro del flujo de producción de una publicación.
@@ -112,6 +139,10 @@ enum TipoArchivo {
 model Organizacion {
   id            String              @id @default(cuid())
   nombre        String
+  /// Plan contratado. Define límites y funcionalidades (ver `src/planes/`).
+  plan          PlanSuscripcion     @default(PRUEBA)
+  /// Vencimiento de la prueba gratuita. Al pasar, la organización cae a STARTER.
+  planExpiraEn  DateTime?
   creadoEn      DateTime            @default(now())
   actualizadoEn DateTime            @updatedAt
   membresias    Membresia[]
@@ -126,6 +157,7 @@ model Organizacion {
   informes      Informe[]
   conexionesMeta ConexionMeta[]
   metricasCuenta MetricaCuenta[]
+  notificaciones Notificacion[]
 
   @@map("organizaciones")
 }
@@ -156,6 +188,7 @@ model Membresia {
   cliente        Cliente?     @relation("ClienteMembresias", fields: [clienteId], references: [id], onDelete: SetNull)
   clienteId      String?
   tareasAsignadas Tarea[]
+  notificaciones Notificacion[]
   creadoEn       DateTime     @default(now())
   actualizadoEn  DateTime     @updatedAt
 
@@ -467,6 +500,38 @@ model Informe {
   @@index([clienteId])
   @@index([periodo])
   @@map("informes")
+}
+
+/// Aviso dirigido a un miembro concreto de una organización.
+///
+/// Se crea de dos maneras (ver `src/notificaciones/`):
+///  - **por evento**: alguien aprueba una publicación → se emite en el acto;
+///  - **por regla**: el job diario evalúa reglas y emite lo que corresponda.
+///
+/// `clave` es lo que evita que el job repita el mismo aviso todos los días: si el
+/// destinatario ya tiene uno **sin leer** con esa misma clave, se actualiza en vez
+/// de crear otro (así "tenés 3 pendientes" pasa a "tenés 5" sin duplicar la fila).
+model Notificacion {
+  id             String           @id @default(cuid())
+  organizacion   Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  destinatario   Membresia        @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  membresiaId    String
+  tipo           TipoNotificacion
+  clave          String
+  titulo         String
+  cuerpo         String?          @db.Text
+  /// Ruta del front a la que lleva el aviso (ej. "/aprobaciones").
+  enlace         String?
+  leida          Boolean          @default(false)
+  leidaEn        DateTime?
+  creadoEn       DateTime         @default(now())
+  actualizadoEn  DateTime         @updatedAt
+
+  @@index([organizacionId])
+  @@index([membresiaId, leida, creadoEn])
+  @@index([membresiaId, clave, leida])
+  @@map("notificaciones")
 }
 
 /// Log de ejecuciones de jobs automáticos (publicar programadas, generar informes).
