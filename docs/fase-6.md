@@ -149,6 +149,31 @@ flujo de caja y baja la tasa de bajas.
 
 ---
 
+## Bloque E — Evitar agencias duplicadas (onboarding de entrada)
+
+**Problema detectado en producción:** una usuaria terminó con **dos agencias**, una de ellas vacía,
+porque al registrarse la app solo ofrece *crear* una agencia — no existe la opción de *unirse* a una
+existente. Sumado a que las invitaciones no envían email, los equipos se fragmentan: en vez de que
+una invite a la otra, cada una crea la suya.
+
+**Por qué importa para cobrar:** los planes se facturan **por agencia**. Un equipo que sin querer
+crea dos tiene el trabajo partido, o recibe dos suscripciones, o se va pensando que perdió sus datos.
+
+### Qué se hace
+1. **Al registrarse, si el email tiene una invitación pendiente, la persona entra directo a esa
+   agencia** en lugar de que se le ofrezca crear una. Resuelve la mitad del problema con poco código
+   (la lógica de aplicar invitaciones ya existe en `GuardAutenticacion`).
+2. **Pantalla de bienvenida** cuando no hay invitación: explica la diferencia entre *crear mi
+   agencia* y *esperar una invitación*, en vez de empujar al formulario de creación.
+3. **Aviso al crear una segunda agencia**: "ya pertenecés a X. ¿Seguro que querés crear otra
+   agencia separada?" — con la aclaración de que los datos no se comparten.
+4. **Poder abandonar o eliminar** una agencia vacía desde la propia app (hoy hay que tocar la base).
+
+### Reparto
+- **masita** — todo el bloque (dueño de `organizaciones` y `equipo`).
+
+---
+
 ## Estrategia comercial
 
 ### El posicionamiento
@@ -180,11 +205,12 @@ informes, automatizaciones): es lo que empuja a subir cuando la agencia crece.
 2. Modelo de consumo de IA + panel en Configuración — *masita*
 3. Infraestructura de notificaciones + campanita — *masita*
 4. Reglas de notificación de sus dominios — *capitán*
+5. Evitar agencias duplicadas: unirse por invitación al registrarse — *masita*
 
 **Sprint 2 — Controlar**
-5. Modelo de planes + los tres controles — *masita*
-6. Gating por plan en el menú y en pantallas — *masita + capitán*
-7. Portal de superadministración — *masita*
+6. Modelo de planes + los tres controles — *masita*
+7. Gating por plan en el menú y en pantallas — *masita + capitán*
+8. Portal de superadministración — *masita*
 
 **Sprint 3 — Vender**
 8. Página de planes y prueba gratuita — *masita*
