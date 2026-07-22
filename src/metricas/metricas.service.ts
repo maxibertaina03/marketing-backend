@@ -101,15 +101,22 @@ export class MetricasService {
       },
     })) as FilaAgregable[];
 
-    const totales = this.acumular(filas);
-    const publicaciones = new Set(filas.map((f) => f.publicacionId)).size;
+    // Instagram entrega valores ACUMULADOS por publicación (el alcance de un post
+    // es su total histórico). Por eso el total real es la última foto de cada
+    // publicación, no la suma de todas las fotos.
+    const ultimas = this.ultimaFotoPorPublicacion(filas);
+    const totales = this.acumular(ultimas);
+    const publicaciones = ultimas.length;
 
-    const porCanal = this.agruparPor(filas, (f) => f.canal).map(([canal, fs]) => ({
+    const porCanal = this.agruparPor(ultimas, (f) => f.canal).map(([canal, fs]) => ({
       canal,
       ...this.resumenCorto(fs),
     }));
 
-    const serie = this.agruparPor(filas, (f) => f.fecha.toISOString().slice(0, 10))
+    // La serie muestra lo que sumó cada día (diferencia contra la foto anterior).
+    const serie = this.agruparPor(this.deltasDiarios(filas), (f) =>
+      f.fecha.toISOString().slice(0, 10),
+    )
       .map(([fecha, fs]) => ({ fecha, ...this.resumenCorto(fs) }))
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
@@ -121,6 +128,85 @@ export class MetricasService {
       porCanal,
       serie,
     };
+  }
+
+  /**
+   * Detalle por publicación: cuándo se publicó, su total acumulado y su evolución
+   * día por día (cuánto sumó cada día).
+   */
+  async detalle(organizacionId: string, dto: ResumenMetricasDto) {
+    await this.verificarCliente(organizacionId, dto.clienteId);
+    const filas = await this.prisma.metricaPublicacion.findMany({
+      where: this.armarWhere(organizacionId, {
+        clienteId: dto.clienteId,
+        desde: dto.desde,
+        hasta: dto.hasta,
+        tipoMedio: dto.tipoMedio,
+      }),
+      orderBy: [{ fecha: 'asc' }],
+      select: {
+        canal: true,
+        fecha: true,
+        publicacionId: true,
+        impresiones: true,
+        alcance: true,
+        meGusta: true,
+        comentarios: true,
+        compartidos: true,
+        guardados: true,
+        clics: true,
+        publicacion: {
+          select: {
+            titulo: true,
+            tipoMedioMeta: true,
+            fechaPublicacion: true,
+            fechaProgramada: true,
+            imagenUrl: true,
+          },
+        },
+      },
+    });
+
+    const porPublicacion = new Map<string, typeof filas>();
+    for (const fila of filas) {
+      const previas = porPublicacion.get(fila.publicacionId) ?? [];
+      previas.push(fila);
+      porPublicacion.set(fila.publicacionId, previas);
+    }
+
+    return [...porPublicacion.entries()]
+      .map(([publicacionId, fotos]) => {
+        const orden = [...fotos].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+        const ultima = orden[orden.length - 1];
+        const totales = this.soloNumeros(ultima);
+
+        let previa: (typeof orden)[number] | null = null;
+        const serie = orden.map((foto) => {
+          const valores = this.soloNumeros({});
+          for (const campo of CAMPOS) {
+            valores[campo] = previa ? Math.max(0, foto[campo] - previa[campo]) : foto[campo];
+          }
+          previa = foto;
+          return {
+            fecha: foto.fecha.toISOString().slice(0, 10),
+            ...valores,
+            interacciones: this.interacciones(valores),
+          };
+        });
+
+        const publicada = ultima.publicacion.fechaPublicacion ?? ultima.publicacion.fechaProgramada;
+        return {
+          publicacionId,
+          titulo: ultima.publicacion.titulo,
+          tipoMedio: ultima.publicacion.tipoMedioMeta,
+          canal: ultima.canal,
+          imagenUrl: ultima.publicacion.imagenUrl,
+          fechaPublicacion: publicada ? publicada.toISOString() : null,
+          totales: { ...totales, interacciones: this.interacciones(totales) },
+          serie,
+        };
+      })
+      .sort((a, b) => (b.fechaPublicacion ?? '').localeCompare(a.fechaPublicacion ?? ''));
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
@@ -139,6 +225,41 @@ export class MetricasService {
       ...(f.tipoMedio ? { publicacion: { tipoMedioMeta: f.tipoMedio } } : {}),
       ...(f.desde || f.hasta ? { fecha } : {}),
     };
+  }
+
+  /** Última foto (valor acumulado) de cada publicación. */
+  private ultimaFotoPorPublicacion(filas: FilaAgregable[]): FilaAgregable[] {
+    const ultima = new Map<string, FilaAgregable>();
+    for (const fila of filas) {
+      const previa = ultima.get(fila.publicacionId);
+      if (!previa || fila.fecha > previa.fecha) ultima.set(fila.publicacionId, fila);
+    }
+    return [...ultima.values()];
+  }
+
+  /** Convierte las fotos acumuladas en cuánto sumó cada publicación cada día. */
+  private deltasDiarios(filas: FilaAgregable[]): FilaAgregable[] {
+    const porPublicacion = new Map<string, FilaAgregable[]>();
+    for (const fila of filas) {
+      const previas = porPublicacion.get(fila.publicacionId) ?? [];
+      previas.push(fila);
+      porPublicacion.set(fila.publicacionId, previas);
+    }
+
+    const salida: FilaAgregable[] = [];
+    for (const fotos of porPublicacion.values()) {
+      const orden = [...fotos].sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+      let previa: FilaAgregable | null = null;
+      for (const foto of orden) {
+        const valores = this.soloNumeros({});
+        for (const campo of CAMPOS) {
+          valores[campo] = previa ? Math.max(0, foto[campo] - previa[campo]) : foto[campo];
+        }
+        salida.push({ ...foto, ...valores });
+        previa = foto;
+      }
+    }
+    return salida;
   }
 
   private soloNumeros(m: Partial<Record<CampoMetrica, number>>): Record<CampoMetrica, number> {
