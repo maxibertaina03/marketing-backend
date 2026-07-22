@@ -30,6 +30,8 @@ export interface MedioInstagram {
   id: string;
   caption: string | null;
   tipo: string | null;
+  /** FEED, REELS, STORY… (distingue reels de publicaciones normales). */
+  tipoProducto: string | null;
   timestamp: string | null;
   permalink: string | null;
   mediaUrl: string | null;
@@ -117,12 +119,14 @@ export class ClienteGraphMeta {
 
   /** Últimos medios (posts) de la cuenta, con likes/comentarios. */
   async medios(token: string, limite = 25): Promise<MedioInstagram[]> {
-    const campos = 'id,caption,media_type,timestamp,permalink,media_url,like_count,comments_count';
+    const campos =
+      'id,caption,media_type,media_product_type,timestamp,permalink,media_url,like_count,comments_count';
     const json = await this.pedir<{
       data: {
         id: string;
         caption?: string;
         media_type?: string;
+        media_product_type?: string;
         timestamp?: string;
         permalink?: string;
         media_url?: string;
@@ -134,6 +138,7 @@ export class ClienteGraphMeta {
       id: m.id,
       caption: m.caption ?? null,
       tipo: m.media_type ?? null,
+      tipoProducto: m.media_product_type ?? null,
       timestamp: m.timestamp ?? null,
       permalink: m.permalink ?? null,
       mediaUrl: m.media_url ?? null,

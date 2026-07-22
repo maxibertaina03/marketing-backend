@@ -4,7 +4,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IngestarMetricasDto } from './dto/ingestar-metricas.dto';
 import { FiltrarMetricasDto } from './dto/filtrar-metricas.dto';
 import { ResumenMetricasDto } from './dto/resumen-metricas.dto';
-import { SimularMetricasDto } from './dto/simular-metricas.dto';
 
 /** Campos numéricos de una métrica (los que se suman/agregan). */
 const CAMPOS = [
@@ -26,7 +25,7 @@ type FilaAgregable = Record<CampoMetrica, number> & {
 };
 
 /**
- * Métricas de publicaciones (Fase 4, slice de masita). Ingesta (la llamará la
+ * Métricas de publicaciones (Fase 4, slice de masita). Ingesta (la usa la
  * integración con Meta), lectura cruda (para la IA de Métricas e Informes de
  * capitán) y resumen agregado (para el Dashboard por cliente). Multi-tenant.
  */
@@ -86,6 +85,7 @@ export class MetricasService {
         clienteId: dto.clienteId,
         desde: dto.desde,
         hasta: dto.hasta,
+        tipoMedio: dto.tipoMedio,
       }),
       select: {
         canal: true,
@@ -123,46 +123,6 @@ export class MetricasService {
     };
   }
 
-  /** Genera métricas de prueba para un cliente (mientras no está la ingesta real). */
-  async simular(organizacionId: string, dto: SimularMetricasDto) {
-    await this.verificarCliente(organizacionId, dto.clienteId);
-    const dias = dto.dias ?? 14;
-    const publicaciones = await this.prisma.publicacion.findMany({
-      where: { clienteId: dto.clienteId, organizacionId },
-      select: { id: true, canal: true },
-    });
-    if (publicaciones.length === 0) {
-      return { generadas: 0, mensaje: 'El cliente no tiene publicaciones para generar métricas.' };
-    }
-
-    const hoy = new Date();
-    hoy.setUTCHours(0, 0, 0, 0);
-    const operaciones = [];
-    for (const pub of publicaciones) {
-      for (let d = 0; d < dias; d++) {
-        const fecha = new Date(hoy);
-        fecha.setUTCDate(fecha.getUTCDate() - d);
-        const valores = this.metricaAleatoria();
-        operaciones.push(
-          this.prisma.metricaPublicacion.upsert({
-            where: { publicacionId_fecha: { publicacionId: pub.id, fecha } },
-            update: valores,
-            create: {
-              organizacionId,
-              clienteId: dto.clienteId,
-              publicacionId: pub.id,
-              canal: pub.canal,
-              fecha,
-              ...valores,
-            },
-          }),
-        );
-      }
-    }
-    await this.prisma.$transaction(operaciones);
-    return { generadas: operaciones.length };
-  }
-
   // ── helpers ───────────────────────────────────────────────────────────────
 
   private armarWhere(
@@ -176,6 +136,7 @@ export class MetricasService {
       organizacionId,
       ...(f.clienteId ? { clienteId: f.clienteId } : {}),
       ...(f.publicacionId ? { publicacionId: f.publicacionId } : {}),
+      ...(f.tipoMedio ? { publicacion: { tipoMedioMeta: f.tipoMedio } } : {}),
       ...(f.desde || f.hasta ? { fecha } : {}),
     };
   }
@@ -208,29 +169,6 @@ export class MetricasService {
       (mapa.get(k) ?? mapa.set(k, []).get(k)!).push(item);
     }
     return [...mapa.entries()];
-  }
-
-  private metricaAleatoria(): Record<CampoMetrica, number> {
-    const impresiones = this.rnd(800, 6000);
-    const alcance = Math.round(impresiones * this.rndFloat(0.55, 0.85));
-    const meGusta = Math.round(alcance * this.rndFloat(0.02, 0.08));
-    return {
-      impresiones,
-      alcance,
-      meGusta,
-      comentarios: Math.round(meGusta * this.rndFloat(0.05, 0.2)),
-      compartidos: Math.round(meGusta * this.rndFloat(0.02, 0.15)),
-      guardados: Math.round(meGusta * this.rndFloat(0.05, 0.25)),
-      clics: Math.round(alcance * this.rndFloat(0.01, 0.05)),
-    };
-  }
-
-  private rnd(min: number, max: number): number {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  private rndFloat(min: number, max: number): number {
-    return Math.random() * (max - min) + min;
   }
 
   private async verificarCliente(organizacionId: string, clienteId: string) {

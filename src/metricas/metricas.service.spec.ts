@@ -80,26 +80,22 @@ describe('MetricasService', () => {
     expect(r.serie.map((s) => s.fecha)).toEqual(['2026-06-01', '2026-06-02']); // ordenada
   });
 
-  it('simular: 0 si el cliente no tiene publicaciones', async () => {
-    prisma.cliente.findFirst.mockResolvedValue({ id: 'c1' });
-    prisma.publicacion.findMany.mockResolvedValue([]);
+  it('listar: filtra por tipo de medio (reels vs publicaciones) vía la publicación', async () => {
+    prisma.metricaPublicacion.findMany.mockResolvedValue([]);
 
-    const r = await service.simular('org1', { clienteId: 'c1', dias: 5 });
-    expect(r.generadas).toBe(0);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    await service.listar('org1', { clienteId: 'c1', tipoMedio: 'REELS' });
+
+    expect(prisma.metricaPublicacion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizacionId: 'org1',
+          clienteId: 'c1',
+          publicacion: { tipoMedioMeta: 'REELS' },
+        }),
+      }),
+    );
   });
 
-  it('simular: genera dias × publicaciones filas', async () => {
-    prisma.cliente.findFirst.mockResolvedValue({ id: 'c1' });
-    prisma.publicacion.findMany.mockResolvedValue([
-      { id: 'p1', canal: Canal.INSTAGRAM },
-      { id: 'p2', canal: Canal.FACEBOOK },
-    ]);
-
-    const r = await service.simular('org1', { clienteId: 'c1', dias: 3 });
-    expect(r).toEqual({ generadas: 6 }); // 2 pubs × 3 días
-    expect(prisma.metricaPublicacion.upsert).toHaveBeenCalledTimes(6);
-  });
 });
 
 function mfila(publicacionId: string, fecha: string, canal: Canal, vals: Record<string, number>) {
