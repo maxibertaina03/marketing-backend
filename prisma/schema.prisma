@@ -330,10 +330,11 @@ model MetricaCuenta {
   cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   clienteId      String
   fecha          DateTime     @db.Date
-  alcance        Int          @default(0)
-  vistas         Int          @default(0)
-  visitasPerfil  Int          @default(0)
-  seguidores     Int          @default(0)
+  // null = Instagram no expone esa métrica para esta cuenta (≠ de cero real).
+  alcance        Int?
+  vistas         Int?
+  visitasPerfil  Int?
+  seguidores     Int?
   creadoEn       DateTime     @default(now())
   actualizadoEn  DateTime     @updatedAt
 

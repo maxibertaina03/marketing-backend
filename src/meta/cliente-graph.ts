@@ -42,10 +42,11 @@ export interface MedioInstagram {
 /** Un día de métricas de la cuenta (no de una publicación). */
 export interface DiaCuenta {
   fecha: string;
-  alcance: number;
-  vistas: number;
-  visitasPerfil: number;
-  seguidores: number;
+  /** null = Instagram no expone esa métrica para esta cuenta (≠ de cero real). */
+  alcance: number | null;
+  vistas: number | null;
+  visitasPerfil: number | null;
+  seguidores: number | null;
 }
 
 export interface InsightsMedio {
@@ -193,54 +194,54 @@ export class ClienteGraphMeta {
   /**
    * Métricas diarias de la CUENTA (últimos `dias`, máx. 30 por pedido de Meta).
    * A diferencia de las publicaciones, acá Instagram sí devuelve serie histórica.
-   * Degrada el set de métricas si alguna no está disponible (varían por versión y
-   * `follower_count` exige +100 seguidores).
+   *
+   * Pide cada métrica **por separado**: si se piden juntas y una no está
+   * disponible (varían por versión de la API, y `follower_count` exige +100
+   * seguidores), Meta rechaza el pedido completo y se perderían todas. Lo que no
+   * se puede traer queda en `null`, para no confundirlo con un cero real.
    */
   async insightsCuenta(igUserId: string, token: string, dias = 30): Promise<DiaCuenta[]> {
     const hasta = Math.floor(Date.now() / 1000);
     const desde = hasta - Math.min(dias, 30) * 24 * 60 * 60;
-    const candidatos = [
-      ['reach', 'views', 'profile_views', 'follower_count'],
-      ['reach', 'views', 'profile_views'],
-      ['reach', 'impressions', 'profile_views'],
-      ['reach', 'profile_views'],
-      ['reach'],
+    const metricas: { nombre: string; campo: keyof Omit<DiaCuenta, 'fecha'> }[] = [
+      { nombre: 'reach', campo: 'alcance' },
+      { nombre: 'views', campo: 'vistas' },
+      { nombre: 'profile_views', campo: 'visitasPerfil' },
+      { nombre: 'follower_count', campo: 'seguidores' },
     ];
 
-    for (const metricas of candidatos) {
+    const porFecha = new Map<string, DiaCuenta>();
+    const dia = (fecha: string) => {
+      const previo = porFecha.get(fecha) ?? {
+        fecha,
+        alcance: null,
+        vistas: null,
+        visitasPerfil: null,
+        seguidores: null,
+      };
+      porFecha.set(fecha, previo);
+      return previo;
+    };
+
+    for (const { nombre, campo } of metricas) {
       try {
         const json = await this.pedir<{
           data: { name: string; values: { value: number; end_time: string }[] }[];
         }>(
-          `${GRAPH}/${igUserId}/insights?metric=${metricas.join(',')}&period=day` +
+          `${GRAPH}/${igUserId}/insights?metric=${nombre}&period=day` +
             `&since=${desde}&until=${hasta}&access_token=${token}`,
         );
-
-        const porFecha = new Map<string, DiaCuenta>();
         for (const metrica of json.data ?? []) {
           for (const punto of metrica.values ?? []) {
-            const fecha = punto.end_time.slice(0, 10);
-            const dia = porFecha.get(fecha) ?? {
-              fecha,
-              alcance: 0,
-              vistas: 0,
-              visitasPerfil: 0,
-              seguidores: 0,
-            };
-            if (metrica.name === 'reach') dia.alcance = punto.value;
-            if (metrica.name === 'views' || metrica.name === 'impressions')
-              dia.vistas = punto.value;
-            if (metrica.name === 'profile_views') dia.visitasPerfil = punto.value;
-            if (metrica.name === 'follower_count') dia.seguidores = punto.value;
-            porFecha.set(fecha, dia);
+            dia(punto.end_time.slice(0, 10))[campo] = punto.value;
           }
         }
-        return [...porFecha.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
       } catch {
-        // probamos con un set más reducido
+        // Métrica no disponible para esta cuenta: queda en null.
       }
     }
-    return [];
+
+    return [...porFecha.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
   }
 
   /**
