@@ -286,7 +286,18 @@ export class MetaService {
       where: { clienteId, metaMediaId: medio.id },
       select: { id: true },
     });
-    if (existente) return existente;
+    const tipoMedio = medio.tipoProducto ?? medio.tipo;
+    if (existente) {
+      // Ya existía (sync previo): refrescamos el tipo de medio, que antes no se
+      // guardaba y hace falta para filtrar publicaciones vs reels.
+      if (tipoMedio) {
+        await this.prisma.publicacion.update({
+          where: { id: existente.id },
+          data: { tipoMedioMeta: tipoMedio },
+        });
+      }
+      return existente;
+    }
     const titulo = (medio.caption?.trim().slice(0, 80) || 'Publicación de Instagram').replace(
       /\n/g,
       ' ',
@@ -296,7 +307,7 @@ export class MetaService {
         organizacionId,
         clienteId,
         metaMediaId: medio.id,
-        tipoMedioMeta: medio.tipoProducto ?? medio.tipo,
+        tipoMedioMeta: tipoMedio,
         titulo,
         contenido: medio.caption ?? '',
         canal: Canal.INSTAGRAM,
