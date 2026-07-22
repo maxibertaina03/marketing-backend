@@ -266,6 +266,33 @@ export class MetaService {
     throw new Error('El archivo tardó demasiado en procesarse en Instagram.');
   }
 
+  /**
+   * Sincroniza las métricas de TODAS las marcas conectadas. La usa el job diario:
+   * como Instagram solo da el total acumulado de cada post (no su historial), la
+   * evolución día a día se construye midiendo una vez por día.
+   */
+  async sincronizarTodas() {
+    const conexiones = await this.prisma.conexionMeta.findMany({
+      select: { organizacionId: true, clienteId: true, cliente: { select: { nombre: true } } },
+    });
+
+    const detalle = [];
+    for (const conexion of conexiones) {
+      try {
+        const r = await this.sincronizar(conexion.organizacionId, conexion.clienteId);
+        detalle.push({ cliente: conexion.cliente.nombre, ok: true, ...r });
+      } catch (e) {
+        const mensaje = e instanceof Error ? e.message : 'Error desconocido';
+        this.logger.error(`Sync de ${conexion.cliente.nombre} falló: ${mensaje}`);
+        detalle.push({ cliente: conexion.cliente.nombre, ok: false, error: mensaje });
+      }
+    }
+
+    const oks = detalle.filter((d) => d.ok).length;
+    this.logger.log(`sincronizarTodas: ${oks}/${conexiones.length} marcas sincronizadas`);
+    return { marcas: conexiones.length, sincronizadas: oks, detalle };
+  }
+
   // ── helpers ───────────────────────────────────────────────────────────────
 
   /** Busca la publicación vinculada al medio de Instagram o la crea. */

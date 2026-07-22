@@ -9,6 +9,10 @@ on:
     - cron: '0 * * * *'
     # Informes mensuales: el día 1 de cada mes, 06:00 UTC.
     - cron: '0 6 1 * *'
+    # Métricas de Instagram: una vez por día (23:00 UTC), para armar la evolución
+    # diaria. Instagram solo da el total acumulado de cada post, así que la serie
+    # histórica se construye midiendo una vez por día.
+    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       tarea:
@@ -18,6 +22,7 @@ on:
         options:
           - publicar-programadas
           - generar-informes-mensuales
+          - sincronizar-metricas
           - ambas
 
 env:
@@ -70,6 +75,32 @@ jobs:
         run: |
           codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
             -X POST "$BASE/automatizaciones/generar-informes-mensuales" \
+            -H "x-job-secret: $JOB_SECRET" \
+            --max-time 300 --retry 2 --retry-delay 30)
+          echo "HTTP $codigo"
+          cat respuesta.json || true
+          echo
+          case "$codigo" in
+            200|201) echo "OK" ;;
+            *) echo "::error::La tarea falló (HTTP $codigo)"; exit 1 ;;
+          esac
+
+  sincronizar-metricas:
+    name: Sincronizar métricas de Instagram
+    if: >-
+      github.event.schedule == '0 23 * * *' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tarea == 'sincronizar-metricas')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar el backend
+        run: curl -sS -o /dev/null --max-time 90 --retry 3 --retry-delay 15 "$BASE/salud" || true
+
+      - name: Ejecutar
+        env:
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
+            -X POST "$BASE/meta/sincronizar-todas" \
             -H "x-job-secret: $JOB_SECRET" \
             --max-time 300 --retry 2 --retry-delay 30)
           echo "HTTP $codigo"

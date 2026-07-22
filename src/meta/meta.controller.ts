@@ -8,6 +8,7 @@ import { PublicarPublicacionDto } from './dto/publicar-publicacion.dto';
 import { GuardRoles } from '../comun/guards/guard-roles';
 import { Roles } from '../comun/decoradores/roles.decorator';
 import { Publico } from '../comun/decoradores/publico.decorator';
+import { GuardJobSecret } from '../automatizaciones/guard-job-secret';
 import { OrgActual } from '../comun/decoradores/contexto-actual.decorator';
 
 /**
@@ -66,6 +67,15 @@ export class MetaController {
   @ApiOperation({ summary: 'Publica en Instagram una publicación aprobada del calendario.' })
   publicar(@OrgActual() organizacionId: string, @Body() dto: PublicarPublicacionDto) {
     return this.meta.publicar(organizacionId, dto);
+  }
+
+  // La llama el cron diario (sin sesión de usuario): la protege el x-job-secret.
+  @Post('sincronizar-todas')
+  @Publico()
+  @UseGuards(GuardJobSecret)
+  @ApiOperation({ summary: 'Sincroniza las métricas de todas las marcas conectadas (job).' })
+  sincronizarTodas() {
+    return this.meta.sincronizarTodas();
   }
 
   @Delete('conexion')
