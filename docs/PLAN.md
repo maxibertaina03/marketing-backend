@@ -180,6 +180,11 @@ grilla de precios y decisiones tomadas en `docs/fase-6.md`.**
     agencias, cambiar su plan, ajustar cuotas y suspenderlas.
   - **Planes:** `Organizacion.plan` + límites, y los tres controles (crear marca, invitar usuario
     interno, generar con IA). Gating por plan en el menú y página de planes.
+  - **Evitar agencias duplicadas:** al registrarse, si el email tiene una invitación pendiente, la
+    persona entra a esa agencia en lugar de que se le ofrezca crear una; pantalla de bienvenida que
+    distingue *crear* de *unirme*; aviso al crear una segunda agencia; y poder abandonar o eliminar
+    una vacía desde la app. *Detectado en producción: una usuaria terminó con dos agencias, una
+    vacía. Importa porque los planes se facturan por agencia.*
 - **capitan:**
   - **Reglas de notificación de sus dominios:** publicaciones pendientes de aprobación, cliente
     aprobó o rechazó, días sin publicar para una marca, campaña por terminar.
