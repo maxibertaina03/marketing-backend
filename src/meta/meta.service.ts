@@ -170,11 +170,37 @@ export class MetaService {
       sincronizadas++;
     }
 
+    // Métricas de la cuenta (Instagram sí da serie diaria acá, ~30 días).
+    let diasCuenta = 0;
+    try {
+      const dias = await graph.insightsCuenta(conexion.igUserId, conexion.accessToken);
+      for (const dia of dias) {
+        const valores = {
+          alcance: dia.alcance,
+          vistas: dia.vistas,
+          visitasPerfil: dia.visitasPerfil,
+          seguidores: dia.seguidores,
+        };
+        await this.prisma.metricaCuenta.upsert({
+          where: { clienteId_fecha: { clienteId, fecha: new Date(dia.fecha) } },
+          update: valores,
+          create: { organizacionId, clienteId, fecha: new Date(dia.fecha), ...valores },
+        });
+      }
+      diasCuenta = dias.length;
+    } catch (e) {
+      // Si la cuenta no expone insights (p. ej. pocos seguidores), seguimos con
+      // las métricas por publicación, que sí tenemos.
+      this.logger.warn(
+        `Sin métricas de cuenta para ${clienteId}: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+
     await this.prisma.conexionMeta.update({
       where: { id: conexion.id },
       data: { ultimaSync: new Date() },
     });
-    return { medios: medios.length, sincronizadas };
+    return { medios: medios.length, sincronizadas, diasCuenta };
   }
 
   /**
