@@ -67,14 +67,22 @@ describe('MetricasService', () => {
         meGusta: 10,
         comentarios: 2,
       }),
-      mfila('p1', '2026-06-02', Canal.INSTAGRAM, { impresiones: 50, alcance: 40, meGusta: 5 }),
+      // Segunda foto de p1: los valores de Instagram son acumulados, así que crecen.
+      mfila('p1', '2026-06-02', Canal.INSTAGRAM, {
+        impresiones: 150,
+        alcance: 120,
+        meGusta: 15,
+        comentarios: 3,
+      }),
       mfila('p2', '2026-06-02', Canal.FACEBOOK, { impresiones: 30, alcance: 20, compartidos: 4 }),
     ]);
 
     const r = await service.resumen('org1', { clienteId: 'c1' });
 
+    // Total = última foto de cada publicación (150 de p1 + 30 de p2), no la suma
+    // de todas las fotos.
     expect(r.totales.impresiones).toBe(180);
-    expect(r.totales.interacciones).toBe(10 + 2 + 5 + 4); // meGusta+comentarios+compartidos+guardados
+    expect(r.totales.interacciones).toBe(15 + 3 + 4); // últimas fotos: p1 (15+3) + p2 (4)
     expect(r.totales.publicaciones).toBe(2); // p1, p2 distintas
     expect(r.porCanal).toHaveLength(2);
     expect(r.serie.map((s) => s.fecha)).toEqual(['2026-06-01', '2026-06-02']); // ordenada
@@ -94,6 +102,84 @@ describe('MetricasService', () => {
         }),
       }),
     );
+  });
+
+  describe('valores acumulados de Instagram', () => {
+    // Un post con 100 impresiones el día 1 y 200 acumuladas el día 2:
+    // el total real es 200 (no 300), y la evolución diaria es 100 y 100.
+    const fotos = [
+      {
+        canal: Canal.INSTAGRAM,
+        fecha: new Date('2026-10-01'),
+        publicacionId: 'p1',
+        impresiones: 100,
+        alcance: 80,
+        meGusta: 10,
+        comentarios: 0,
+        compartidos: 0,
+        guardados: 0,
+        clics: 0,
+      },
+      {
+        canal: Canal.INSTAGRAM,
+        fecha: new Date('2026-10-02'),
+        publicacionId: 'p1',
+        impresiones: 200,
+        alcance: 150,
+        meGusta: 25,
+        comentarios: 0,
+        compartidos: 0,
+        guardados: 0,
+        clics: 0,
+      },
+    ];
+
+    it('el total es la última foto, no la suma de las fotos', async () => {
+      prisma.cliente.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.metricaPublicacion.findMany.mockResolvedValue(fotos);
+
+      const r = await service.resumen('org1', { clienteId: 'c1' });
+
+      expect(r.totales.impresiones).toBe(200); // no 300
+      expect(r.totales.alcance).toBe(150); // no 230
+      expect(r.totales.publicaciones).toBe(1);
+    });
+
+    it('la serie muestra lo que sumó cada día', async () => {
+      prisma.cliente.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.metricaPublicacion.findMany.mockResolvedValue(fotos);
+
+      const r = await service.resumen('org1', { clienteId: 'c1' });
+
+      expect(r.serie).toEqual([
+        expect.objectContaining({ fecha: '2026-10-01', impresiones: 100, alcance: 80 }),
+        expect.objectContaining({ fecha: '2026-10-02', impresiones: 100, alcance: 70 }),
+      ]);
+    });
+
+    it('detalle: devuelve fecha de publicación, total y evolución por publicación', async () => {
+      prisma.cliente.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.metricaPublicacion.findMany.mockResolvedValue(
+        fotos.map((f) => ({
+          ...f,
+          publicacion: {
+            titulo: 'Reel de pilates',
+            tipoMedioMeta: 'REELS',
+            fechaPublicacion: new Date('2026-10-01'),
+            fechaProgramada: null,
+            imagenUrl: null,
+          },
+        })),
+      );
+
+      const [item] = await service.detalle('org1', { clienteId: 'c1' });
+
+      expect(item.titulo).toBe('Reel de pilates');
+      expect(item.tipoMedio).toBe('REELS');
+      expect(item.fechaPublicacion).toContain('2026-10-01');
+      expect(item.totales.impresiones).toBe(200);
+      expect(item.serie.map((d) => d.impresiones)).toEqual([100, 100]);
+    });
   });
 
 });
