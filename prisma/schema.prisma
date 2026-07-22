@@ -125,6 +125,7 @@ model Organizacion {
   metricas      MetricaPublicacion[]
   informes      Informe[]
   conexionesMeta ConexionMeta[]
+  metricasCuenta MetricaCuenta[]
 
   @@map("organizaciones")
 }
@@ -199,6 +200,7 @@ model Cliente {
   metricas           MetricaPublicacion[]
   informes           Informe[]
   conexionMeta       ConexionMeta?
+  metricasCuenta     MetricaCuenta[]
   creadoEn           DateTime            @default(now())
   actualizadoEn      DateTime            @updatedAt
 
@@ -316,6 +318,29 @@ model MetricaPublicacion {
   @@index([clienteId])
   @@index([fecha])
   @@map("metricas_publicacion")
+}
+
+/// Métricas diarias de la CUENTA de Instagram (no de una publicación). Instagram
+/// sí expone serie diaria a nivel cuenta (~30 días hacia atrás), así que acá el
+/// historial se puede traer de entrada. Único por (cliente, fecha).
+model MetricaCuenta {
+  id             String       @id @default(cuid())
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  clienteId      String
+  fecha          DateTime     @db.Date
+  alcance        Int          @default(0)
+  vistas         Int          @default(0)
+  visitasPerfil  Int          @default(0)
+  seguidores     Int          @default(0)
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  @@unique([clienteId, fecha])
+  @@index([organizacionId])
+  @@index([fecha])
+  @@map("metricas_cuenta")
 }
 
 /// Conexión de un cliente (marca) con su cuenta de Instagram/Facebook vía Meta.

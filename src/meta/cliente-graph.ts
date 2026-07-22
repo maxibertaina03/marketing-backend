@@ -39,6 +39,15 @@ export interface MedioInstagram {
   comentarios: number;
 }
 
+/** Un día de métricas de la cuenta (no de una publicación). */
+export interface DiaCuenta {
+  fecha: string;
+  alcance: number;
+  vistas: number;
+  visitasPerfil: number;
+  seguidores: number;
+}
+
 export interface InsightsMedio {
   alcance: number;
   impresiones: number;
@@ -179,6 +188,59 @@ export class ClienteGraphMeta {
       }
     }
     return { alcance: 0, impresiones: 0, guardados: 0, compartidos: 0 };
+  }
+
+  /**
+   * Métricas diarias de la CUENTA (últimos `dias`, máx. 30 por pedido de Meta).
+   * A diferencia de las publicaciones, acá Instagram sí devuelve serie histórica.
+   * Degrada el set de métricas si alguna no está disponible (varían por versión y
+   * `follower_count` exige +100 seguidores).
+   */
+  async insightsCuenta(igUserId: string, token: string, dias = 30): Promise<DiaCuenta[]> {
+    const hasta = Math.floor(Date.now() / 1000);
+    const desde = hasta - Math.min(dias, 30) * 24 * 60 * 60;
+    const candidatos = [
+      ['reach', 'views', 'profile_views', 'follower_count'],
+      ['reach', 'views', 'profile_views'],
+      ['reach', 'impressions', 'profile_views'],
+      ['reach', 'profile_views'],
+      ['reach'],
+    ];
+
+    for (const metricas of candidatos) {
+      try {
+        const json = await this.pedir<{
+          data: { name: string; values: { value: number; end_time: string }[] }[];
+        }>(
+          `${GRAPH}/${igUserId}/insights?metric=${metricas.join(',')}&period=day` +
+            `&since=${desde}&until=${hasta}&access_token=${token}`,
+        );
+
+        const porFecha = new Map<string, DiaCuenta>();
+        for (const metrica of json.data ?? []) {
+          for (const punto of metrica.values ?? []) {
+            const fecha = punto.end_time.slice(0, 10);
+            const dia = porFecha.get(fecha) ?? {
+              fecha,
+              alcance: 0,
+              vistas: 0,
+              visitasPerfil: 0,
+              seguidores: 0,
+            };
+            if (metrica.name === 'reach') dia.alcance = punto.value;
+            if (metrica.name === 'views' || metrica.name === 'impressions')
+              dia.vistas = punto.value;
+            if (metrica.name === 'profile_views') dia.visitasPerfil = punto.value;
+            if (metrica.name === 'follower_count') dia.seguidores = punto.value;
+            porFecha.set(fecha, dia);
+          }
+        }
+        return [...porFecha.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
+      } catch {
+        // probamos con un set más reducido
+      }
+    }
+    return [];
   }
 
   /**
