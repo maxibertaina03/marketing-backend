@@ -175,6 +175,7 @@ export class MetaService {
     try {
       const dias = await graph.insightsCuenta(conexion.igUserId, conexion.accessToken);
       for (const dia of dias) {
+        // Se guardan tal cual: null significa "Instagram no la expone".
         const valores = {
           alcance: dia.alcance,
           vistas: dia.vistas,
