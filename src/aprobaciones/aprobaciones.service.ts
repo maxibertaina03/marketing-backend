@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoContenido, Rol } from '@prisma/client';
+import { EstadoContenido, Rol, TipoNotificacion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 import { FiltrarAprobacionesDto } from './dto/filtrar-aprobaciones.dto';
 import { AprobarDto } from './dto/aprobar.dto';
 import { RechazarDto } from './dto/rechazar.dto';
@@ -19,7 +20,10 @@ interface ContextoUsuario {
 
 @Injectable()
 export class AprobacionesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificaciones: NotificacionesService,
+  ) {}
 
   async listar(organizacionId: string, filtros: FiltrarAprobacionesDto) {
     const { clienteId, estado = EstadoContenido.EN_REVISION, pagina = 1, limite = 20 } = filtros;
@@ -89,11 +93,22 @@ export class AprobacionesService {
         `Solo se puede aprobar una publicación EN_REVISION. Estado actual: '${pub.estado}'.`,
       );
     }
-    return this.prisma.publicacion.update({
+    const resultado = await this.prisma.publicacion.update({
       where: { id },
       data: { estado: EstadoContenido.APROBADO, motivoRechazo: null },
       select: { id: true, titulo: true, estado: true, motivoRechazo: true, actualizadoEn: true },
     });
+
+    // Aviso por evento — no bloquea si falla.
+    void this.notificaciones.emitir(organizacionId, {
+      tipo: TipoNotificacion.PUBLICACION_APROBADA,
+      clave: `publicacion-aprobada:${id}`,
+      titulo: `"${pub.titulo}" fue aprobada.`,
+      enlace: '/aprobaciones',
+      paraRoles: [Rol.COMMUNITY_MANAGER, Rol.COPYWRITER],
+    });
+
+    return resultado;
   }
 
   async rechazar(organizacionId: string, id: string, dto: RechazarDto, ctx: ContextoUsuario) {
@@ -105,11 +120,23 @@ export class AprobacionesService {
         `Solo se puede rechazar una publicación EN_REVISION. Estado actual: '${pub.estado}'.`,
       );
     }
-    return this.prisma.publicacion.update({
+    const resultado = await this.prisma.publicacion.update({
       where: { id },
       data: { estado: EstadoContenido.RECHAZADO, motivoRechazo: dto.motivo },
       select: { id: true, titulo: true, estado: true, motivoRechazo: true, actualizadoEn: true },
     });
+
+    // Aviso por evento — no bloquea si falla.
+    void this.notificaciones.emitir(organizacionId, {
+      tipo: TipoNotificacion.PUBLICACION_RECHAZADA,
+      clave: `publicacion-rechazada:${id}`,
+      titulo: `"${pub.titulo}" fue rechazada.`,
+      cuerpo: `Motivo: ${dto.motivo}`,
+      enlace: '/aprobaciones',
+      paraRoles: [Rol.COMMUNITY_MANAGER, Rol.COPYWRITER],
+    });
+
+    return resultado;
   }
 
   private validarAccesoCliente(publicacionClienteId: string, ctx: ContextoUsuario) {
