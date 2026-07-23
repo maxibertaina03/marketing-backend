@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Rol } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlanesService } from '../planes/planes.service';
 import { InvitarMiembroDto } from './dto/invitar-miembro.dto';
 
 /**
@@ -18,7 +19,10 @@ import { InvitarMiembroDto } from './dto/invitar-miembro.dto';
  */
 @Injectable()
 export class EquipoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planes: PlanesService,
+  ) {}
 
   /** Lista los miembros (usuario + rol) de la organización. */
   async listarMiembros(organizacionId: string) {
@@ -54,6 +58,8 @@ export class EquipoService {
    */
   async invitar(organizacionId: string, dto: InvitarMiembroDto) {
     const email = dto.email.toLowerCase();
+    // Antes de reservar cupo: si es un rol interno y el plan no da para más, frena.
+    await this.planes.verificarPuedeInvitarInterno(organizacionId, dto.rol);
     const clienteId = await this.resolverClienteId(organizacionId, dto.rol, dto.clienteId);
     const usuario = await this.prisma.usuario.findUnique({ where: { email } });
 
