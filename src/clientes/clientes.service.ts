@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CrearClienteDto } from './dto/crear-cliente.dto';
 import { ActualizarClienteDto } from './dto/actualizar-cliente.dto';
 import { FiltrarClientesDto } from './dto/filtrar-clientes.dto';
+import { PlanesService } from '../planes/planes.service';
 
 /**
  * Lógica de clientes (marcas). Toda operación queda acotada a la organización
@@ -11,10 +12,14 @@ import { FiltrarClientesDto } from './dto/filtrar-clientes.dto';
  */
 @Injectable()
 export class ClientesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planes: PlanesService,
+  ) {}
 
   /** Crea un cliente dentro de la organización. */
   async crear(organizacionId: string, dto: CrearClienteDto) {
+    await this.planes.verificarPuedeCrearMarca(organizacionId);
     return this.prisma.cliente.create({
       data: { ...dto, paletaColores: dto.paletaColores ?? [], organizacionId },
     });

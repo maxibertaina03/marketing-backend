@@ -151,6 +151,7 @@ export class GuardAutenticacion implements CanActivate {
           where: {
             usuarioId_organizacionId: { usuarioId, organizacionId: organizacionSolicitada },
           },
+          include: { organizacion: { select: { suspendida: true } } },
         })
       : await this.elegirMembresiaUnica(usuarioId);
 
@@ -160,13 +161,18 @@ export class GuardAutenticacion implements CanActivate {
         membresia,
         organizacionId: membresia.organizacionId,
         rol: membresia.rol,
+        suspendida: membresia.organizacion.suspendida,
       };
     }
   }
 
   /** Devuelve la membresía del usuario solo si tiene exactamente una. */
   private async elegirMembresiaUnica(usuarioId: string) {
-    const membresias = await this.prisma.membresia.findMany({ where: { usuarioId }, take: 2 });
+    const membresias = await this.prisma.membresia.findMany({
+      where: { usuarioId },
+      take: 2,
+      include: { organizacion: { select: { suspendida: true } } },
+    });
     return membresias.length === 1 ? membresias[0] : null;
   }
 }

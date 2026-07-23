@@ -36,3 +36,5 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY # opcional hasta usar el Centro de IA (Fase 2)
         sync: false
+      - key: SUPERADMINS # emails del portal de superadmin, separados por coma
+        sync: false

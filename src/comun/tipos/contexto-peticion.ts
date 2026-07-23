@@ -10,6 +10,8 @@ export interface ContextoPeticion {
   membresia: Membresia;
   organizacionId: string;
   rol: Rol;
+  /** La agencia está suspendida (el superadmin la frenó, p. ej. por falta de pago). */
+  suspendida: boolean;
 }
 
 /**

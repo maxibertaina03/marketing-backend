@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Rol } from '@prisma/client';
 import { EquipoService } from './equipo.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlanesService } from '../planes/planes.service';
 
 describe('EquipoService — vínculo CLIENTE ↔ marca', () => {
   let service: EquipoService;
@@ -31,7 +32,11 @@ describe('EquipoService — vínculo CLIENTE ↔ marca', () => {
       invitacion: { upsert: jest.fn() },
     };
     const modulo = await Test.createTestingModule({
-      providers: [EquipoService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        EquipoService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PlanesService, useValue: { verificarPuedeInvitarInterno: jest.fn() } },
+      ],
     }).compile();
     service = modulo.get(EquipoService);
   });

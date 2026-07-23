@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { EstadoCliente } from '@prisma/client';
 import { ClientesService } from './clientes.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PlanesService } from '../planes/planes.service';
 
 describe('ClientesService', () => {
   let service: ClientesService;
@@ -28,7 +29,11 @@ describe('ClientesService', () => {
     };
 
     const modulo = await Test.createTestingModule({
-      providers: [ClientesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ClientesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PlanesService, useValue: { verificarPuedeCrearMarca: jest.fn() } },
+      ],
     }).compile();
 
     service = modulo.get(ClientesService);
