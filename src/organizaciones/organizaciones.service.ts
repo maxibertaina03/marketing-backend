@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Rol } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearOrganizacionDto } from './dto/crear-organizacion.dto';
+import { planEfectivo } from '../planes/plan-efectivo';
 
 @Injectable()
 export class OrganizacionesService {
@@ -35,6 +36,9 @@ export class OrganizacionesService {
       organizacionId: m.organizacionId,
       nombre: m.organizacion.nombre,
       rol: m.rol,
+      // El front decide con esto qué secciones muestra (igual que con el rol).
+      plan: planEfectivo(m.organizacion),
+      planExpiraEn: m.organizacion.planExpiraEn,
     }));
   }
 
@@ -46,6 +50,7 @@ export class OrganizacionesService {
     if (!organizacion) {
       throw new NotFoundException('La organización no existe.');
     }
-    return organizacion;
+    // `plan` es el contratado; el efectivo puede diferir si venció la prueba.
+    return { ...organizacion, plan: planEfectivo(organizacion) };
   }
 }

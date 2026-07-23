@@ -79,6 +79,33 @@ enum TipoBotonIa {
   OTRO
 }
 
+// ─── Fase 6: Notificaciones y planes ───
+
+/// Plan comercial contratado por una organización. Define sus límites (marcas,
+/// usuarios internos, cuota de IA) y qué funcionalidades tiene habilitadas.
+/// PRUEBA es Agency completo por 14 días; al vencer cae a STARTER.
+enum PlanSuscripcion {
+  PRUEBA
+  STARTER
+  AGENCY
+  AGENCY_PRO
+  ENTERPRISE
+}
+
+/// Tipo de aviso del centro de notificaciones. Determina el ícono y el color en
+/// el panel; el texto lo arma cada regla (o el evento que la emite).
+enum TipoNotificacion {
+  APROBACIONES_PENDIENTES
+  PUBLICACION_APROBADA
+  PUBLICACION_RECHAZADA
+  DIAS_SIN_PUBLICAR
+  CAMPANA_POR_TERMINAR
+  TAREA_ASIGNADA
+  INSTAGRAM_DESCONECTADO
+  CUOTA_IA_CERCA
+  CUOTA_IA_AGOTADA
+}
+
 // ─── Fase 3: Producción y Gestión de Archivos ───
 
 /// Tipo de tarea dentro del flujo de producción de una publicación.
@@ -112,6 +139,18 @@ enum TipoArchivo {
 model Organizacion {
   id            String              @id @default(cuid())
   nombre        String
+  /// Plan contratado. Define límites y funcionalidades (ver `src/planes/`).
+  plan          PlanSuscripcion     @default(PRUEBA)
+  /// Vencimiento de la prueba gratuita. Al pasar, la organización cae a STARTER.
+  planExpiraEn  DateTime?
+  /// Overrides de los límites del plan (null = usar el del plan). Los pone el
+  /// portal de superadministración para Enterprise o excepciones puntuales.
+  limiteMarcas           Int?
+  limiteUsuariosInternos Int?
+  limiteGeneracionesIa   Int?
+  /// Tope mensual de generaciones por persona, para que un solo miembro no se
+  /// coma la cuota de toda la agencia. null = sin sub-límite.
+  limiteIaPorUsuario     Int?
   creadoEn      DateTime            @default(now())
   actualizadoEn DateTime            @updatedAt
   membresias    Membresia[]
@@ -126,6 +165,8 @@ model Organizacion {
   informes      Informe[]
   conexionesMeta ConexionMeta[]
   metricasCuenta MetricaCuenta[]
+  notificaciones Notificacion[]
+  consumosIa     ConsumoIa[]
 
   @@map("organizaciones")
 }
@@ -156,6 +197,7 @@ model Membresia {
   cliente        Cliente?     @relation("ClienteMembresias", fields: [clienteId], references: [id], onDelete: SetNull)
   clienteId      String?
   tareasAsignadas Tarea[]
+  notificaciones Notificacion[]
   creadoEn       DateTime     @default(now())
   actualizadoEn  DateTime     @updatedAt
 
@@ -377,6 +419,9 @@ model GeneracionIa {
   id                  String       @id @default(cuid())
   organizacion        Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId      String
+  /// Quién la pidió. Nullable porque las generaciones previas a la Fase 6 no lo
+  /// registraban. Permite el detalle por persona y el sub-límite por usuario.
+  usuarioId           String?
   clienteId           String?
   estrategiaId        String?
   tipoBoton           TipoBotonIa
@@ -392,7 +437,37 @@ model GeneracionIa {
   @@index([organizacionId])
   @@index([clienteId])
   @@index([tipoBoton])
+  // Para el detalle por persona y el sub-límite mensual por usuario.
+  @@index([organizacionId, usuarioId, creadoEn])
   @@map("generaciones_ia")
+}
+
+/// Consumo de IA acumulado por organización y período (`YYYY-MM`).
+///
+/// Es un resumen redundante: el detalle está en `GeneracionIa`. Existe para que
+/// verificar la cuota antes de cada generación sea **una sola lectura por clave**
+/// y no una agregación sobre toda la tabla, que se degradaría con el uso.
+model ConsumoIa {
+  id                   String       @id @default(cuid())
+  organizacion         Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId       String
+  /// Formato `YYYY-MM` en UTC.
+  periodo              String
+  generaciones         Int          @default(0)
+  tokensEntrada        Int          @default(0)
+  tokensSalida         Int          @default(0)
+  tokensCacheEscritura Int          @default(0)
+  tokensCacheLectura   Int          @default(0)
+  /// Costo acumulado en USD, con los precios vigentes al momento de cada llamada.
+  costoUsd             Decimal      @default(0) @db.Decimal(12, 6)
+  /// Cuándo se avisó que la cuota estaba por agotarse (para no repetir el aviso).
+  avisadoEn            DateTime?
+  creadoEn             DateTime     @default(now())
+  actualizadoEn        DateTime     @updatedAt
+
+  @@unique([organizacionId, periodo])
+  @@index([periodo])
+  @@map("consumos_ia")
 }
 
 /// Tarea de producción asociada a una publicación: el trabajo concreto que el
@@ -467,6 +542,38 @@ model Informe {
   @@index([clienteId])
   @@index([periodo])
   @@map("informes")
+}
+
+/// Aviso dirigido a un miembro concreto de una organización.
+///
+/// Se crea de dos maneras (ver `src/notificaciones/`):
+///  - **por evento**: alguien aprueba una publicación → se emite en el acto;
+///  - **por regla**: el job diario evalúa reglas y emite lo que corresponda.
+///
+/// `clave` es lo que evita que el job repita el mismo aviso todos los días: si el
+/// destinatario ya tiene uno **sin leer** con esa misma clave, se actualiza en vez
+/// de crear otro (así "tenés 3 pendientes" pasa a "tenés 5" sin duplicar la fila).
+model Notificacion {
+  id             String           @id @default(cuid())
+  organizacion   Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  destinatario   Membresia        @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  membresiaId    String
+  tipo           TipoNotificacion
+  clave          String
+  titulo         String
+  cuerpo         String?          @db.Text
+  /// Ruta del front a la que lleva el aviso (ej. "/aprobaciones").
+  enlace         String?
+  leida          Boolean          @default(false)
+  leidaEn        DateTime?
+  creadoEn       DateTime         @default(now())
+  actualizadoEn  DateTime         @updatedAt
+
+  @@index([organizacionId])
+  @@index([membresiaId, leida, creadoEn])
+  @@index([membresiaId, clave, leida])
+  @@map("notificaciones")
 }
 
 /// Log de ejecuciones de jobs automáticos (publicar programadas, generar informes).

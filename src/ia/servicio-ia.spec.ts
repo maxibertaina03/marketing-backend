@@ -5,6 +5,7 @@ import { TipoBotonIa } from '@prisma/client';
 import { ServicioIa } from './servicio-ia';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { SolicitudGeneracion } from './tipos';
+import type { ConsumoIaService } from './consumo-ia.service';
 
 jest.mock('@anthropic-ai/sdk');
 
@@ -28,11 +29,16 @@ describe('ServicioIa', () => {
     const prisma = {
       generacionIa: { create: jest.fn().mockResolvedValue({ id: 'gen_1' }) },
     };
+    const consumo = {
+      verificar: jest.fn().mockResolvedValue(undefined),
+      registrar: jest.fn().mockResolvedValue(undefined),
+    };
     const servicio = new ServicioIa(
       config as unknown as ConfigService,
       prisma as unknown as PrismaService,
+      consumo as unknown as ConsumoIaService,
     );
-    return { servicio, prisma };
+    return { servicio, prisma, consumo };
   }
 
   const solicitud: SolicitudGeneracion = {

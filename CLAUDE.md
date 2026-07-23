@@ -93,13 +93,19 @@ El plan completo lo tiene masita; pedíselo si necesitás el detalle.
 
 El módulo `ia` (`src/ia/`) es la base de la Fase 2. Expone **`ServicioIa`** y NUNCA se
 llama a la IA desde el front (la `ANTHROPIC_API_KEY` vive solo en el backend). El modelo
-por defecto es `claude-opus-4-8` (configurable con `MODELO_IA`).
+por defecto en el código es `claude-opus-4-8`, pero **en producción `MODELO_IA` está puesto
+en `claude-haiku-4-5`**: es el que realmente atiende todos los botones hoy.
 
 **Patrón "botón = endpoint = salida estructurada" (no chat):** cada botón de IA es un
 endpoint que arma el contexto real de la marca y devuelve **JSON validable**. Por dentro,
-`ServicioIa` fuerza una herramienta cuyo `input_schema` es tu esquema, cachea el contexto de
-marca (prompt caching, ~90% más barato en repeticiones) y **persiste cada generación**
-(`GeneracionIa`: entrada, salida, modelo, tokens) para trazabilidad y Banco de Ideas.
+`ServicioIa` fuerza una herramienta cuyo `input_schema` es tu esquema, marca el contexto de
+marca con `cache_control` y **persiste cada generación** (`GeneracionIa`: entrada, salida,
+modelo, tokens) para trazabilidad y Banco de Ideas.
+
+**El caché todavía no ahorra nada.** Requiere un mínimo de tokens por modelo (Haiku 4.5:
+4.096) y nuestros contextos rondan los 1.200 en total, así que la API responde sin cachear
+y sin avisar. Medido en producción: 0 tokens de caché en 18 generaciones. Ver
+`scripts/medir-costo-ia.ts`, que informa el costo real por botón.
 
 ### Cómo construir un botón nuevo (lo que hace capitán encima)
 
