@@ -143,6 +143,9 @@ model Organizacion {
   plan          PlanSuscripcion     @default(PRUEBA)
   /// Vencimiento de la prueba gratuita. Al pasar, la organización cae a STARTER.
   planExpiraEn  DateTime?
+  /// Suspendida por el superadmin (p. ej. falta de pago). Bloquea el acceso sin
+  /// borrar nada. La levanta el mismo portal.
+  suspendida    Boolean             @default(false)
   /// Overrides de los límites del plan (null = usar el del plan). Los pone el
   /// portal de superadministración para Enterprise o excepciones puntuales.
   limiteMarcas           Int?
@@ -574,6 +577,26 @@ model Notificacion {
   @@index([membresiaId, leida, creadoEn])
   @@index([membresiaId, clave, leida])
   @@map("notificaciones")
+}
+
+/// Registro de auditoría del portal de superadministración: qué superadmin hizo
+/// qué y sobre qué organización. El portal rompe el aislamiento multi-tenant a
+/// propósito, así que toda acción queda trazada.
+model AuditoriaAdmin {
+  id             String   @id @default(cuid())
+  /// Email del superadmin que ejecutó la acción (de la lista SUPERADMINS).
+  superadmin     String
+  /// Qué hizo: CAMBIAR_PLAN, AJUSTAR_LIMITES, REINICIAR_CUOTA, SUSPENDER, REACTIVAR.
+  accion         String
+  /// Organización afectada (no es FK: se conserva aunque la organización se borre).
+  organizacionId String
+  /// Detalle libre de lo que cambió (valores antes/después).
+  detalle        Json?
+  creadoEn       DateTime @default(now())
+
+  @@index([organizacionId])
+  @@index([superadmin])
+  @@map("auditoria_admin")
 }
 
 /// Log de ejecuciones de jobs automáticos (publicar programadas, generar informes).

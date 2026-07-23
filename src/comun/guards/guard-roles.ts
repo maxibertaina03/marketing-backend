@@ -28,6 +28,15 @@ export class GuardRoles implements CanActivate {
       );
     }
 
+    // Agencia suspendida por el superadmin (falta de pago): se corta acá el acceso
+    // a todo lo de negocio. `/organizaciones/mias` no pasa por este guard, así que
+    // el usuario igual puede ver cuál está suspendida.
+    if (peticion.contexto.suspendida) {
+      throw new ForbiddenException(
+        'Esta agencia está suspendida. Contactá al administrador de la plataforma para reactivarla.',
+      );
+    }
+
     if (rolesPermitidos && rolesPermitidos.length > 0) {
       if (!rolesPermitidos.includes(peticion.contexto.rol)) {
         throw new ForbiddenException('No tenés permisos para realizar esta acción.');
