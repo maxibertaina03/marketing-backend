@@ -39,7 +39,7 @@ export class IaContenidoService {
   ) {}
 
   /** Botón "Ideas de contenido". */
-  async generarIdeas(organizacionId: string, dto: GenerarIdeasDto) {
+  async generarIdeas(organizacionId: string, usuarioId: string, dto: GenerarIdeasDto) {
     const { contextoMarca, estrategiaId } = await this.construirContexto(
       organizacionId,
       dto.clienteId,
@@ -53,6 +53,7 @@ export class IaContenidoService {
 
     return this.servicioIa.generar<SalidaIdeas>({
       organizacionId,
+      usuarioId,
       clienteId: dto.clienteId,
       estrategiaId,
       tipoBoton: TipoBotonIa.IDEAS_CONTENIDO,
@@ -63,7 +64,7 @@ export class IaContenidoService {
   }
 
   /** Botón "Hooks". */
-  async generarHooks(organizacionId: string, dto: GenerarHooksDto) {
+  async generarHooks(organizacionId: string, usuarioId: string, dto: GenerarHooksDto) {
     const { contextoMarca, estrategiaId } = await this.construirContexto(
       organizacionId,
       dto.clienteId,
@@ -76,6 +77,7 @@ export class IaContenidoService {
 
     return this.servicioIa.generar<SalidaHooks>({
       organizacionId,
+      usuarioId,
       clienteId: dto.clienteId,
       estrategiaId,
       tipoBoton: TipoBotonIa.HOOKS,
@@ -86,7 +88,7 @@ export class IaContenidoService {
   }
 
   /** Botón "Carrusel". */
-  async generarCarrusel(organizacionId: string, dto: GenerarCarruselDto) {
+  async generarCarrusel(organizacionId: string, usuarioId: string, dto: GenerarCarruselDto) {
     const { contextoMarca, estrategiaId } = await this.construirContexto(
       organizacionId,
       dto.clienteId,
@@ -99,6 +101,7 @@ export class IaContenidoService {
 
     return this.servicioIa.generar<SalidaCarrusel>({
       organizacionId,
+      usuarioId,
       clienteId: dto.clienteId,
       estrategiaId,
       tipoBoton: TipoBotonIa.CARRUSEL,
@@ -109,7 +112,7 @@ export class IaContenidoService {
   }
 
   /** Botón "Copy" (alimenta la Biblioteca de Copys). */
-  async generarCopy(organizacionId: string, dto: GenerarCopyDto) {
+  async generarCopy(organizacionId: string, usuarioId: string, dto: GenerarCopyDto) {
     const { contextoMarca, estrategiaId } = await this.construirContexto(
       organizacionId,
       dto.clienteId,
@@ -122,6 +125,7 @@ export class IaContenidoService {
 
     return this.servicioIa.generar<SalidaCopy>({
       organizacionId,
+      usuarioId,
       clienteId: dto.clienteId,
       estrategiaId,
       tipoBoton: TipoBotonIa.COPYWRITING,

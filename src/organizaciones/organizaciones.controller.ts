@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Usuario } from '@prisma/client';
 import { OrganizacionesService } from './organizaciones.service';
@@ -29,5 +29,14 @@ export class OrganizacionesController {
   @ApiOperation({ summary: 'Devuelve la organización activa (según x-organizacion-id).' })
   obtenerActual(@OrgActual() organizacionId: string) {
     return this.organizaciones.obtener(organizacionId);
+  }
+
+  @Delete(':id/salir')
+  @ApiOperation({
+    summary:
+      'Sale de una organización: la abandona si quedan otros miembros, o la elimina si estaba vacío. Solo ADMIN y sin marcas.',
+  })
+  salir(@UsuarioActual() usuario: Usuario, @Param('id') id: string) {
+    return this.organizaciones.salir(id, usuario.id);
   }
 }

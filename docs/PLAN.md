@@ -18,7 +18,10 @@
   tablero, producción aclarada, filtro por cliente, IA de Oportunidades de Crecimiento, permisos
   ver/editar + Configuración, **workspace por marca activa** y **subida real de archivos**
   (Cloudinary).
-- **Pendiente: Sprint 4 (#7 auto-publicación a Instagram)**, bloqueado hasta el App Review de Meta.
+- **Fase 5 — Sprint 4 (#7 auto-publicación)**: código completo (back + front); el posteo real se
+  habilita al aprobar Meta el permiso `instagram_business_content_publish`.
+- **Próximo: Fase 6 — Notificaciones, control de IA y planes comerciales.** Detalle completo en
+  `docs/fase-6.md`.
 
 ---
 
@@ -159,6 +162,39 @@ es un slice de su dueño (back + front), como siempre. Numeración `#n` = ítem 
 2. ✅ **Valor alto:** #1 (IA Oportunidades) · #6 (roles ver/editar + Configuración).
 3. ✅ **Arquitectura:** #8-Fase B (workspace por cliente) · #5 (subida de archivos a Cloudinary).
 4. ⏳ **Avanzado:** #7 (auto-posteo) — **bloqueado por el App Review de Meta**.
+
+### Fase 6 — Notificaciones, control de IA y planes comerciales
+Convertir el producto en un negocio: hoy funciona pero no se puede cobrar. **Detalle completo,
+grilla de precios y decisiones tomadas en `docs/fase-6.md`.**
+
+- **masita:**
+  - **Consumo y límites de IA:** medir el costo real por generación (ya guardamos los tokens en
+    `GeneracionIa`), modelo `ConsumoIa` por organización y período, cuota mensual aplicada en
+    `ServicioIa.generar()` (único punto de paso de todos los botones) y panel de consumo en
+    Configuración. Al agotarse **se bloquea** con mensaje claro y botón para mejorar el plan.
+  - **Infraestructura de notificaciones:** modelo `Notificacion`, API, campanita con contador,
+    panel desplegable y el motor que ejecuta las reglas desde el job diario. Más sus reglas
+    (tarea asignada, Instagram desconectado).
+  - **Portal de superadministración** (`/admin`, misma app): marca `esSuperadmin` en `Usuario`,
+    **guard propio aislado** del de roles, módulo `admin` aparte y auditoría. Permite ver todas las
+    agencias, cambiar su plan, ajustar cuotas y suspenderlas.
+  - **Planes:** `Organizacion.plan` + límites, y los tres controles (crear marca, invitar usuario
+    interno, generar con IA). Gating por plan en el menú y página de planes.
+  - **Evitar agencias duplicadas:** al registrarse, si el email tiene una invitación pendiente, la
+    persona entra a esa agencia en lugar de que se le ofrezca crear una; pantalla de bienvenida que
+    distingue *crear* de *unirme*; aviso al crear una segunda agencia; y poder abandonar o eliminar
+    una vacía desde la app. *Detectado en producción: una usuaria terminó con dos agencias, una
+    vacía. Importa porque los planes se facturan por agencia.*
+- **capitan:**
+  - **Reglas de notificación de sus dominios:** publicaciones pendientes de aprobación, cliente
+    aprobó o rechazó, días sin publicar para una marca, campaña por terminar.
+  - **Gating por plan en sus pantallas:** aviso de "esta función es de otro plan" en IA Estratégica,
+    Campañas, Informes y Producción.
+- **Conjunto:** la página de ventas pública con la grilla de precios.
+
+**Orden:** (1) medir consumo + notificaciones · (2) planes, límites y portal superadmin ·
+(3) página de planes, prueba gratuita y pasarela de pago. El cobro va último: sin límites
+aplicados, vender planes distintos no significa nada.
 
 ---
 

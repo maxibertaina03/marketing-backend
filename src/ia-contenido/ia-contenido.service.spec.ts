@@ -67,7 +67,7 @@ describe('IaContenidoService', () => {
   it('arma el contexto de marca + estrategia y delega en ServicioIa con el esquema correcto', async () => {
     prisma.cliente.findFirst.mockResolvedValue(clienteConEstrategia);
 
-    await service.generarIdeas('org_1', {
+    await service.generarIdeas('org_1', 'user_1', {
       clienteId: 'cli_1',
       cantidad: 3,
       tema: 'café de especialidad',
@@ -92,7 +92,7 @@ describe('IaContenidoService', () => {
     prisma.cliente.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.generarCopy('org_1', { clienteId: 'ajeno', brief: 'promo 2x1' }),
+      service.generarCopy('org_1', 'user_1', { clienteId: 'ajeno', brief: 'promo 2x1' }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(servicioIa.generar).not.toHaveBeenCalled();
   });
@@ -101,7 +101,7 @@ describe('IaContenidoService', () => {
     prisma.cliente.findFirst.mockResolvedValue({ ...clienteConEstrategia, estrategias: [] });
 
     await expect(
-      service.generarHooks('org_1', {
+      service.generarHooks('org_1', 'user_1', {
         clienteId: 'cli_1',
         tema: 'tostado',
         estrategiaId: 'no_existe',

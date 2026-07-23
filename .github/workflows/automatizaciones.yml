@@ -13,6 +13,9 @@ on:
     # diaria. Instagram solo da el total acumulado de cada post, así que la serie
     # histórica se construye midiendo una vez por día.
     - cron: '0 23 * * *'
+    # Reglas de notificación: 11:00 UTC (8 de la mañana en Argentina), para que el
+    # equipo arranque el día con los avisos ya puestos.
+    - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
       tarea:
@@ -23,6 +26,7 @@ on:
           - publicar-programadas
           - generar-informes-mensuales
           - sincronizar-metricas
+          - evaluar-reglas-notificacion
           - ambas
 
 env:
@@ -101,6 +105,32 @@ jobs:
         run: |
           codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
             -X POST "$BASE/meta/sincronizar-todas" \
+            -H "x-job-secret: $JOB_SECRET" \
+            --max-time 300 --retry 2 --retry-delay 30)
+          echo "HTTP $codigo"
+          cat respuesta.json || true
+          echo
+          case "$codigo" in
+            200|201) echo "OK" ;;
+            *) echo "::error::La tarea falló (HTTP $codigo)"; exit 1 ;;
+          esac
+
+  evaluar-reglas-notificacion:
+    name: Evaluar reglas de notificación
+    if: >-
+      github.event.schedule == '0 11 * * *' ||
+      (github.event_name == 'workflow_dispatch' && inputs.tarea == 'evaluar-reglas-notificacion')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar el backend
+        run: curl -sS -o /dev/null --max-time 90 --retry 3 --retry-delay 15 "$BASE/salud" || true
+
+      - name: Ejecutar
+        env:
+          JOB_SECRET: ${{ secrets.JOB_SECRET }}
+        run: |
+          codigo=$(curl -sS -o respuesta.json -w '%{http_code}' \
+            -X POST "$BASE/notificaciones/evaluar-reglas" \
             -H "x-job-secret: $JOB_SECRET" \
             --max-time 300 --retry 2 --retry-delay 30)
           echo "HTTP $codigo"

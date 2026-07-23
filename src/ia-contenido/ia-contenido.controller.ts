@@ -9,7 +9,7 @@ import { GenerarCopyDto } from './dto/generar-copy.dto';
 import { FiltrarBibliotecaDto } from './dto/filtrar-biblioteca.dto';
 import { GuardRoles } from '../comun/guards/guard-roles';
 import { Roles } from '../comun/decoradores/roles.decorator';
-import { OrgActual } from '../comun/decoradores/contexto-actual.decorator';
+import { OrgActual, UsuarioActual } from '../comun/decoradores/contexto-actual.decorator';
 
 /**
  * Centro de IA — Contenido (Fase 2). Botones que generan piezas a partir del
@@ -26,29 +26,45 @@ export class IaContenidoController {
   @Post('ideas')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.COPYWRITER)
   @ApiOperation({ summary: 'Genera ideas de contenido para una marca (IA).' })
-  generarIdeas(@OrgActual() organizacionId: string, @Body() dto: GenerarIdeasDto) {
-    return this.iaContenido.generarIdeas(organizacionId, dto);
+  generarIdeas(
+    @OrgActual() organizacionId: string,
+    @UsuarioActual() usuario: { id: string },
+    @Body() dto: GenerarIdeasDto,
+  ) {
+    return this.iaContenido.generarIdeas(organizacionId, usuario.id, dto);
   }
 
   @Post('hooks')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.COPYWRITER)
   @ApiOperation({ summary: 'Genera hooks (ganchos de apertura) para una pieza.' })
-  generarHooks(@OrgActual() organizacionId: string, @Body() dto: GenerarHooksDto) {
-    return this.iaContenido.generarHooks(organizacionId, dto);
+  generarHooks(
+    @OrgActual() organizacionId: string,
+    @UsuarioActual() usuario: { id: string },
+    @Body() dto: GenerarHooksDto,
+  ) {
+    return this.iaContenido.generarHooks(organizacionId, usuario.id, dto);
   }
 
   @Post('carrusel')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.COPYWRITER)
   @ApiOperation({ summary: 'Genera un carrusel (slides + caption + hashtags).' })
-  generarCarrusel(@OrgActual() organizacionId: string, @Body() dto: GenerarCarruselDto) {
-    return this.iaContenido.generarCarrusel(organizacionId, dto);
+  generarCarrusel(
+    @OrgActual() organizacionId: string,
+    @UsuarioActual() usuario: { id: string },
+    @Body() dto: GenerarCarruselDto,
+  ) {
+    return this.iaContenido.generarCarrusel(organizacionId, usuario.id, dto);
   }
 
   @Post('copy')
   @Roles(Rol.ADMIN, Rol.COMMUNITY_MANAGER, Rol.COPYWRITER)
   @ApiOperation({ summary: 'Genera el copy de una publicación desde un brief.' })
-  generarCopy(@OrgActual() organizacionId: string, @Body() dto: GenerarCopyDto) {
-    return this.iaContenido.generarCopy(organizacionId, dto);
+  generarCopy(
+    @OrgActual() organizacionId: string,
+    @UsuarioActual() usuario: { id: string },
+    @Body() dto: GenerarCopyDto,
+  ) {
+    return this.iaContenido.generarCopy(organizacionId, usuario.id, dto);
   }
 
   @Get('biblioteca')
