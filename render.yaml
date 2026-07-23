@@ -1,10 +1,9 @@
 # Blueprint de Render para el backend de ContentOS.
-# Crea una base PostgreSQL gestionada + un Web Service de NestJS.
+# Solo el Web Service de NestJS: la base PostgreSQL vive fuera de Render (Neon),
+# porque la base free de Render caduca al mes. `DATABASE_URL` se completa a mano
+# en el dashboard con la connection string de Neon.
 # En Render: New → Blueprint → conectá este repo. Después completá en el dashboard
-# las variables marcadas `sync: false` (Clerk, CORS y, cuando la tengas, Anthropic).
-databases:
-  - name: contentos-db
-    plan: free
+# las variables marcadas `sync: false` (base, Clerk, CORS y Anthropic).
 
 services:
   - type: web
@@ -16,10 +15,9 @@ services:
     startCommand: npm run start:prod
     healthCheckPath: /api/salud
     envVars:
+      # Base de datos: connection string de Neon (Postgres externo, free sin caducidad).
       - key: DATABASE_URL
-        fromDatabase:
-          name: contentos-db
-          property: connectionString
+        sync: false
       - key: MODELO_IA
         value: claude-opus-4-8
       # Completar en el dashboard de Render (no se versionan):
