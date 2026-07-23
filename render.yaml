@@ -1,25 +1,28 @@
 # Blueprint de Render para el backend de ContentOS.
-# Crea una base PostgreSQL gestionada + un Web Service de NestJS.
+# Solo el Web Service de NestJS: la base PostgreSQL vive fuera de Render (Neon),
+# porque la base free de Render caduca al mes. `DATABASE_URL` se completa a mano
+# en el dashboard con la connection string de Neon.
 # En Render: New → Blueprint → conectá este repo. Después completá en el dashboard
-# las variables marcadas `sync: false` (Clerk, CORS y, cuando la tengas, Anthropic).
-databases:
-  - name: contentos-db
-    plan: free
+# las variables marcadas `sync: false` (base, Clerk, CORS y Anthropic).
 
 services:
   - type: web
     name: contentos-backend
     runtime: node
     plan: free
-    # Genera el cliente Prisma, aplica migraciones y compila.
-    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
-    startCommand: npm run start:prod
+    # El build solo genera el cliente Prisma y compila. Las migraciones NO van
+    # acá: si `migrate deploy` fallara (p. ej. la base no responde), el `&&`
+    # cortaría antes de `npm run build` y no se generaría `dist/`, con lo que el
+    # arranque muere con "Cannot find module dist/main". Se aplican al arrancar.
+    buildCommand: npm install && npx prisma generate && npm run build
+    # Aplica migraciones pendientes (idempotente) y arranca. Si la base no
+    # responde, falla acá con un error claro de base —no de módulo faltante—.
+    startCommand: npx prisma migrate deploy && npm run start:prod
     healthCheckPath: /api/salud
     envVars:
+      # Base de datos: connection string de Neon (Postgres externo, free sin caducidad).
       - key: DATABASE_URL
-        fromDatabase:
-          name: contentos-db
-          property: connectionString
+        sync: false
       - key: MODELO_IA
         value: claude-opus-4-8
       # Completar en el dashboard de Render (no se versionan):
