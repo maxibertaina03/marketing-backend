@@ -1,5 +1,7 @@
 import { ReglaNotificacion } from '../tipos';
 import { reglaInstagramDesconectado } from './instagram-desconectado.regla';
+import { reglaAprobacionesPendientes } from './aprobaciones-pendientes.regla';
+import { reglaDiasSinPublicar } from './dias-sin-publicar.regla';
 
 /**
  * Reglas que evalúa el job diario, en orden.
@@ -8,9 +10,10 @@ import { reglaInstagramDesconectado } from './instagram-desconectado.regla';
  * `ReglaNotificacion` y agregalo acá. No hace falta tocar nada más — ni módulos,
  * ni providers, ni el controller.
  *
- * Reglas pendientes (Fase 6):
- *  - `aprobaciones-pendientes`  — capitán
- *  - `dias-sin-publicar`        — capitán
- *  - `campana-por-terminar`     — capitán
+ * Pendiente: `campana-por-terminar` — necesita un modelo Campana con fechaFin.
  */
-export const REGLAS: ReglaNotificacion[] = [reglaInstagramDesconectado];
+export const REGLAS: ReglaNotificacion[] = [
+  reglaInstagramDesconectado,
+  reglaAprobacionesPendientes,
+  reglaDiasSinPublicar,
+];
