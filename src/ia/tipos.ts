@@ -18,6 +18,16 @@ export interface SolicitudGeneracion {
   clienteId?: string;
   /** Estrategia asociada (opcional). */
   estrategiaId?: string;
+
+  /**
+   * Quién pidió la generación (`usuario.id`, de `@UsuarioActual()`).
+   *
+   * Opcional para no romper lo ya escrito, pero **pasalo siempre**: sin esto la
+   * generación no aparece en el detalle por persona del panel de consumo, y el
+   * sub-límite por usuario no puede aplicarse.
+   */
+  usuarioId?: string;
+
   /** Qué botón originó esta generación. */
   tipoBoton: TipoBotonIa;
 

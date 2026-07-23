@@ -143,6 +143,14 @@ model Organizacion {
   plan          PlanSuscripcion     @default(PRUEBA)
   /// Vencimiento de la prueba gratuita. Al pasar, la organización cae a STARTER.
   planExpiraEn  DateTime?
+  /// Overrides de los límites del plan (null = usar el del plan). Los pone el
+  /// portal de superadministración para Enterprise o excepciones puntuales.
+  limiteMarcas           Int?
+  limiteUsuariosInternos Int?
+  limiteGeneracionesIa   Int?
+  /// Tope mensual de generaciones por persona, para que un solo miembro no se
+  /// coma la cuota de toda la agencia. null = sin sub-límite.
+  limiteIaPorUsuario     Int?
   creadoEn      DateTime            @default(now())
   actualizadoEn DateTime            @updatedAt
   membresias    Membresia[]
@@ -158,6 +166,7 @@ model Organizacion {
   conexionesMeta ConexionMeta[]
   metricasCuenta MetricaCuenta[]
   notificaciones Notificacion[]
+  consumosIa     ConsumoIa[]
 
   @@map("organizaciones")
 }
@@ -410,6 +419,9 @@ model GeneracionIa {
   id                  String       @id @default(cuid())
   organizacion        Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
   organizacionId      String
+  /// Quién la pidió. Nullable porque las generaciones previas a la Fase 6 no lo
+  /// registraban. Permite el detalle por persona y el sub-límite por usuario.
+  usuarioId           String?
   clienteId           String?
   estrategiaId        String?
   tipoBoton           TipoBotonIa
@@ -425,7 +437,37 @@ model GeneracionIa {
   @@index([organizacionId])
   @@index([clienteId])
   @@index([tipoBoton])
+  // Para el detalle por persona y el sub-límite mensual por usuario.
+  @@index([organizacionId, usuarioId, creadoEn])
   @@map("generaciones_ia")
+}
+
+/// Consumo de IA acumulado por organización y período (`YYYY-MM`).
+///
+/// Es un resumen redundante: el detalle está en `GeneracionIa`. Existe para que
+/// verificar la cuota antes de cada generación sea **una sola lectura por clave**
+/// y no una agregación sobre toda la tabla, que se degradaría con el uso.
+model ConsumoIa {
+  id                   String       @id @default(cuid())
+  organizacion         Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId       String
+  /// Formato `YYYY-MM` en UTC.
+  periodo              String
+  generaciones         Int          @default(0)
+  tokensEntrada        Int          @default(0)
+  tokensSalida         Int          @default(0)
+  tokensCacheEscritura Int          @default(0)
+  tokensCacheLectura   Int          @default(0)
+  /// Costo acumulado en USD, con los precios vigentes al momento de cada llamada.
+  costoUsd             Decimal      @default(0) @db.Decimal(12, 6)
+  /// Cuándo se avisó que la cuota estaba por agotarse (para no repetir el aviso).
+  avisadoEn            DateTime?
+  creadoEn             DateTime     @default(now())
+  actualizadoEn        DateTime     @updatedAt
+
+  @@unique([organizacionId, periodo])
+  @@index([periodo])
+  @@map("consumos_ia")
 }
 
 /// Tarea de producción asociada a una publicación: el trabajo concreto que el

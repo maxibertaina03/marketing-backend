@@ -10,36 +10,12 @@
  *   DATABASE_URL="<url externa de la base>" npx ts-node scripts/medir-costo-ia.ts
  */
 import { PrismaClient } from '@prisma/client';
-
-/**
- * Precios en USD por millón de tokens.
- * Fuente: https://platform.claude.com/docs/en/about-claude/pricing (22/07/2026).
- * Si cambian, se actualizan acá y el informe se recalcula solo.
- */
-const PRECIOS: Record<string, Precio> = {
-  'claude-opus-4-8': { entrada: 5, salida: 25, cacheEscritura: 6.25, cacheLectura: 0.5 },
-  'claude-sonnet-5': { entrada: 2, salida: 10, cacheEscritura: 2.5, cacheLectura: 0.2 },
-  'claude-haiku-4-5': { entrada: 1, salida: 5, cacheEscritura: 1.25, cacheLectura: 0.1 },
-  // Mismo modelo con la versión fijada: se factura igual.
-  'claude-haiku-4-5-20251001': { entrada: 1, salida: 5, cacheEscritura: 1.25, cacheLectura: 0.1 },
-};
-
-/** Modelos que se comparan en "el mismo trabajo con otro modelo" (sin alias repetidos). */
-const COMPARABLES = ['claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5'];
-
-interface Precio {
-  entrada: number;
-  salida: number;
-  cacheEscritura: number;
-  cacheLectura: number;
-}
-
-interface Tokens {
-  entrada: number;
-  salida: number;
-  cacheEscritura: number;
-  cacheLectura: number;
-}
+import {
+  PRECIOS,
+  MODELOS_COMPARABLES as COMPARABLES,
+  type PrecioModelo as Precio,
+  type TokensUsados as Tokens,
+} from '../src/ia/precios';
 
 const MILLON = 1_000_000;
 
@@ -89,12 +65,16 @@ async function main() {
   const modelos = [...new Set(generaciones.map((g) => g.modelo))];
   const desconocidos = modelos.filter((m) => !PRECIOS[m]);
   if (desconocidos.length > 0) {
-    console.log(`⚠️  Sin precio cargado para: ${desconocidos.join(', ')}. Se omiten del informe.\n`);
+    console.log(
+      `⚠️  Sin precio cargado para: ${desconocidos.join(', ')}. Se omiten del informe.\n`,
+    );
   }
 
   const usables = generaciones.filter((g) => PRECIOS[g.modelo]);
   if (usables.length === 0) {
-    console.log('No queda ninguna generación con precio conocido: cargá los precios y volvé a correr.');
+    console.log(
+      'No queda ninguna generación con precio conocido: cargá los precios y volvé a correr.',
+    );
     await prisma.$disconnect();
     return;
   }
@@ -167,7 +147,9 @@ async function main() {
   // ─── Cuánto costaría cada cuota ───
   console.log('\n─── Costo mensual de IA por agencia, según la cuota ───');
   console.log('(al costo promedio actual, en el peor caso: la agencia agota la cuota)\n');
-  console.log(fila(['Generaciones/mes', 'Costo IA', '% de Starter', '% de Agency'], [18, 12, 14, 14]));
+  console.log(
+    fila(['Generaciones/mes', 'Costo IA', '% de Starter', '% de Agency'], [18, 12, 14, 14]),
+  );
   for (const cuota of [100, 250, 500, 1000, 2500]) {
     const costoMes = promedio * cuota;
     console.log(
