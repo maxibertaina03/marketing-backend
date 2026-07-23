@@ -31,6 +31,21 @@ export class NotificacionesService {
    *
    * Devuelve cuántos avisos se crearon y cuántos se refrescaron.
    */
+  /**
+   * Versión fire-and-forget de `emitir`, para avisos **por evento** (aprobar,
+   * rechazar, asignar una tarea…). Nunca lanza ni deja una promesa sin manejar:
+   * si el aviso falla, se registra y la operación de negocio sigue su curso.
+   *
+   * Usá esto —no `void emitir(...)`— en los eventos: un `void` sobre una promesa
+   * que rechaza es un `unhandledRejection`, y en Node eso puede tumbar el proceso.
+   * Aprobar una publicación no puede depender de que la notificación salga bien.
+   */
+  emitirEvento(organizacionId: string, aviso: AvisoPropuesto): void {
+    void this.emitir(organizacionId, aviso).catch((e) => {
+      this.logger.warn(`No se pudo emitir el aviso "${aviso.clave}": ${String(e)}`);
+    });
+  }
+
   async emitir(organizacionId: string, aviso: AvisoPropuesto) {
     const membresiaIds = await this.resolverDestinatarios(organizacionId, aviso);
     let creados = 0;

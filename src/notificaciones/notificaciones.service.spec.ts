@@ -104,6 +104,17 @@ describe('NotificacionesService', () => {
     });
   });
 
+  describe('emitirEvento', () => {
+    it('no lanza aunque emitir falle: un aviso caído no puede tumbar la operación', () => {
+      const service = crear({
+        membresia: { findMany: jest.fn().mockRejectedValue(new Error('DB caída')) },
+        notificacion: {},
+      });
+
+      expect(() => service.emitirEvento('org1', AVISO)).not.toThrow();
+    });
+  });
+
   describe('marcarLeida', () => {
     it('404 si el aviso no es del usuario', async () => {
       const service = crear({

@@ -73,9 +73,7 @@ export class AprobacionesService {
     const pub = await this.prisma.publicacion.findFirst({ where: { id, organizacionId } });
     if (!pub) throw new NotFoundException('Publicación no encontrada.');
     if (pub.estado !== EstadoContenido.BORRADOR && pub.estado !== EstadoContenido.RECHAZADO) {
-      throw new ConflictException(
-        `No se puede enviar a revisión desde el estado '${pub.estado}'.`,
-      );
+      throw new ConflictException(`No se puede enviar a revisión desde el estado '${pub.estado}'.`);
     }
     return this.prisma.publicacion.update({
       where: { id },
@@ -100,7 +98,7 @@ export class AprobacionesService {
     });
 
     // Aviso por evento — no bloquea si falla.
-    void this.notificaciones.emitir(organizacionId, {
+    this.notificaciones.emitirEvento(organizacionId, {
       tipo: TipoNotificacion.PUBLICACION_APROBADA,
       clave: `publicacion-aprobada:${id}`,
       titulo: `"${pub.titulo}" fue aprobada.`,
@@ -127,7 +125,7 @@ export class AprobacionesService {
     });
 
     // Aviso por evento — no bloquea si falla.
-    void this.notificaciones.emitir(organizacionId, {
+    this.notificaciones.emitirEvento(organizacionId, {
       tipo: TipoNotificacion.PUBLICACION_RECHAZADA,
       clave: `publicacion-rechazada:${id}`,
       titulo: `"${pub.titulo}" fue rechazada.`,
