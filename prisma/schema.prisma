@@ -94,6 +94,13 @@ enum PlanSuscripcion {
 
 /// Tipo de aviso del centro de notificaciones. Determina el ícono y el color en
 /// el panel; el texto lo arma cada regla (o el evento que la emite).
+/// Estado de un intento de pago de suscripción (Mercado Pago).
+enum EstadoPago {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
 enum TipoNotificacion {
   APROBACIONES_PENDIENTES
   PUBLICACION_APROBADA
@@ -170,6 +177,7 @@ model Organizacion {
   metricasCuenta MetricaCuenta[]
   notificaciones Notificacion[]
   consumosIa     ConsumoIa[]
+  pagos          Pago[]
 
   @@map("organizaciones")
 }
@@ -577,6 +585,31 @@ model Notificacion {
   @@index([membresiaId, leida, creadoEn])
   @@index([membresiaId, clave, leida])
   @@map("notificaciones")
+}
+
+/// Intento de pago de una suscripción vía Mercado Pago (Checkout Pro).
+///
+/// Se crea al iniciar el checkout (PENDIENTE) y lo actualiza el webhook cuando
+/// MP confirma. Al quedar APROBADO se activa el plan de la organización. Se
+/// conserva como historial de facturación.
+model Pago {
+  id             String          @id @default(cuid())
+  organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacionId String
+  plan           PlanSuscripcion
+  /// Monto y moneda tal como se cobraron (ver `planes/precios-plan.ts`).
+  monto          Decimal         @db.Decimal(12, 2)
+  moneda         String
+  estado         EstadoPago      @default(PENDIENTE)
+  /// Referencia que viaja a MP y vuelve en el webhook (external_reference).
+  referencia     String          @unique
+  /// Id del pago en Mercado Pago, cuando se confirma.
+  mpPagoId       String?
+  creadoEn       DateTime        @default(now())
+  actualizadoEn  DateTime        @updatedAt
+
+  @@index([organizacionId])
+  @@map("pagos")
 }
 
 /// Registro de auditoría del portal de superadministración: qué superadmin hizo
