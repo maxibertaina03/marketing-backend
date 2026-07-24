@@ -26,6 +26,7 @@ import { AutomatizacionesModule } from './automatizaciones/automatizaciones.modu
 import { MetaModule } from './meta/meta.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { AdminModule } from './admin/admin.module';
+import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AdminModule } from './admin/admin.module';
     MetaModule,
     NotificacionesModule,
     AdminModule,
+    PagosModule,
   ],
   providers: [
     // GuardAutenticacion corre en todas las rutas (excepto las marcadas con @Publico).

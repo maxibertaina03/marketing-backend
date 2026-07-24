@@ -38,3 +38,9 @@ services:
         sync: false
       - key: SUPERADMINS # emails del portal de superadmin, separados por coma
         sync: false
+      - key: MERCADOPAGO_ACCESS_TOKEN # access token de la app de Mercado Pago
+        sync: false
+      - key: MONEDA_PAGO # moneda de cobro (ARS por defecto)
+        value: ARS
+      - key: URL_BACKEND # URL pública del backend (para el webhook de MP)
+        value: https://contentos-backend-0qns.onrender.com
